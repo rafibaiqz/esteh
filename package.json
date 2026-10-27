@@ -1,0 +1,19 @@
+{
+  "name": "esteh",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ESTEH — a 2D isometric iced tea business simulation (tycoon) game.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sim": "esbuild scripts/simulate.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/esteh-sim.mjs --log-level=warning && node node_modules/.cache/esteh-sim.mjs",
+    "test": "esbuild scripts/test.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/esteh-test.mjs --log-level=warning && node node_modules/.cache/esteh-test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

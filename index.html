@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2f6b2a" />
+    <title>ESTEH — Juragan Es Teh</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect x='4' y='3' width='8' height='1' fill='%231f3a17'/%3E%3Crect x='5' y='4' width='6' height='10' fill='%23e8f4f8'/%3E%3Crect x='6' y='6' width='4' height='7' fill='%23b5651d'/%3E%3Crect x='9' y='0' width='1' height='4' fill='%23e74c3c'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="viewport">
+      <div id="stage">
+        <canvas id="world" aria-label="Dunia permainan"></canvas>
+        <header id="hud" aria-label="Status usaha"></header>
+        <div id="loc-hud"></div>
+        <div id="ctl"></div>
+        <nav id="toolbar" aria-label="Menu usaha"></nav>
+        <section id="menu" class="menu" hidden></section>
+        <div id="prep" hidden></div>
+        <div id="cart-pop" hidden></div>
+        <div id="pause" class="pause-back" hidden></div>
+        <div id="fx" aria-hidden="true"></div>
+        <div id="toasts" aria-live="polite"></div>
+        <div id="title" class="title-screen"><canvas id="title-canvas" aria-hidden="true"></canvas><div id="title-ui"></div></div>
+        <div id="tooltip" role="tooltip"></div>
+        <div id="modal-root"></div>
+      </div>
+    </div>
+    <noscript>ESTEH membutuhkan JavaScript.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
