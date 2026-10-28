@@ -7,10 +7,7 @@ import type { AudioManager } from './AudioManager';
  * that decides *when* a sound plays; components never play audio directly.
  */
 export function bindAudio(audio: AudioManager, game: Game): void {
-  // Browsers only allow audio after a user gesture: the first pointer/key press starts it.
-  const unlock = () => audio.unlock();
-  window.addEventListener('pointerdown', unlock, true);
-  window.addEventListener('keydown', unlock, true);
+  // (Unlocking on the first user gesture is owned by AudioManager.init().)
 
   // One soft click per click on an enabled control (a single capturing listener, so
   // nested handlers can't double it; disabled buttons never receive clicks).

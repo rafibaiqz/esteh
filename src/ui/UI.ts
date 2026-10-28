@@ -351,7 +351,7 @@ export class UI {
   }
 
   async openSettings(): Promise<void> {
-    await modal('Pengaturan', settingsHtml(), [{ label: 'Tutup', value: 'ok', kind: 'primary' }]);
+    await modal('Pengaturan', settingsHtml(), [{ label: 'Tutup', value: 'ok', kind: 'primary' }], true);
   }
 
   private async confirmBuy(name: string, price: number): Promise<boolean> {

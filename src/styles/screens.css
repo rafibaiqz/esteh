@@ -811,9 +811,14 @@ h3.cat:first-child {
 
 /* ------------------------------------------------------------ settings */
 .settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+}
+.set-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  min-width: 0;
 }
 .set-opt {
   display: flex;
@@ -1330,6 +1335,9 @@ details.more .tbl {
 .tbtn.primary:hover small {
   color: var(--tea);
 }
+.t-panel.wide {
+  width: 780px;
+}
 .t-panel {
   width: 420px;
   max-height: 470px;
@@ -1502,9 +1510,8 @@ details.more .tbl {
 
 /* ------------------------------------------------------------ audio settings */
 .set-group {
-  margin-top: 6px;
-  padding-top: 8px;
-  border-top: 2px solid var(--caramel);
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--honey);
   font: 700 13px var(--font-head);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1516,7 +1523,7 @@ details.more .tbl {
   gap: 8px;
 }
 .vol-ctl input[type='range'] {
-  width: 150px;
+  width: 120px;
   accent-color: var(--amber);
   cursor: pointer;
 }
@@ -1525,4 +1532,23 @@ details.more .tbl {
   text-align: right;
   font: 700 13px var(--font-head);
   color: var(--tea);
+}
+.audio-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  padding: 3px 12px;
+  border-radius: 12px;
+  background: rgba(56, 39, 29, 0.55);
+  color: var(--cream);
+  font-size: 11.5px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: hint-breathe 2.4s ease-in-out infinite;
+}
+@keyframes hint-breathe {
+  50% {
+    opacity: 0.6;
+  }
 }

@@ -59,11 +59,15 @@ export function settingsHtml(): string {
       .map(([v, l]) => `<button class="${String(s[key]) === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${l}</button>`)
       .join('')}</div></div>`;
   return `<div class="settings">
+    <div class="set-col">
+    <div class="set-group">Permainan</div>
     ${seg('reactions', 'Balon reaksi pelanggan', [['true', 'Tampil'], ['false', 'Sembunyi']], 'Kalimat singkat di atas kepala pelanggan dan penjual. Komentar terbaru tetap ada di Statistik → Hari Ini.')}
     ${seg('weatherFx', 'Efek cuaca', [['full', 'Penuh'], ['light', 'Ringan'], ['off', 'Mati']], 'Hanya tampilan (hujan, awan, kilat). Pengaruh cuaca ke penjualan tetap berlaku.')}
     ${seg('zoom', 'Zoom awal peta', [['0', '1×'], ['1', '1,5×'], ['2', '2×'], ['3', '3×']], 'Zoom saat permainan dibuka atau pindah lokasi.')}
     ${seg('speed', 'Kecepatan awal', [['1', '1×'], ['2', '2×'], ['4', '4×']], 'Kecepatan simulasi saat lapak dibuka.')}
     ${seg('hints', 'Tips pemula', [['true', 'Aktif'], ['false', 'Mati']], 'Petunjuk singkat di rincian kartu persiapan.')}
+    </div>
+    <div class="set-col">
     <div class="set-group">Suara</div>
     ${seg('muted', 'Semua suara', [['false', 'Aktif'], ['true', 'Bisu']], 'Membisukan musik dan efek tanpa mengubah volume masing-masing.')}
     ${seg('musicOn', 'Musik latar', [['true', 'Aktif'], ['false', 'Mati']], 'Musik santai \u201cTeh Sore\u201d yang diputar berulang.')}
@@ -71,6 +75,7 @@ export function settingsHtml(): string {
     ${seg('sfxOn', 'Efek suara', [['true', 'Aktif'], ['false', 'Mati']], 'Klik tombol, bunyi kasir saat pembeli membayar, dan bunyi pemberitahuan.')}
     ${slider('sfxVolume', 'Volume efek', s.sfxVolume)}
     ${seg('pauseMusic', 'Musik saat jeda', [['normal', 'Normal'], ['soft', 'Pelan'], ['off', 'Senyap']], 'Volume musik selama menu jeda terbuka. Permainan tetap berhenti total.')}
+    </div>
   </div>`;
 }
 
@@ -219,7 +224,7 @@ export class TitleScreen {
         case 'load':
           return this.loadHtml();
         case 'settings':
-          return `<div class="t-panel"><h2>Pengaturan</h2>${settingsHtml()}<div class="t-actions"><button class="btn" data-ta="back">Kembali</button></div></div>`;
+          return `<div class="t-panel wide"><h2>Pengaturan</h2>${settingsHtml()}<div class="t-actions"><button class="btn" data-ta="back">Kembali</button></div></div>`;
         case 'credits':
           return this.creditsHtml();
       }

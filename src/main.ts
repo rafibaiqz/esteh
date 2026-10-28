@@ -48,8 +48,16 @@ function boot(): void {
   titleRenderer.camera.zoomIndex = 1;
   titleRenderer.pauseTint = false;
   const ui = new UI(game, renderer);
+  // Audio lives for the whole session and is ready from the very first screen.
   const audio = new AudioManager();
   bindAudio(audio, game);
+  const audioHint = document.getElementById('audio-hint')!;
+  const refreshAudioHint = () => {
+    const s = getSettings();
+    audioHint.hidden = !(audio.locked && s.musicOn && !s.muted);
+  };
+  audio.onLockChange = refreshAudioHint;
+  audio.init();
   ui.onPauseMenu = (open) => audio.setPauseMenu(open);
   renderer.camera.zoomIndex = getSettings().zoom;
   titleRenderer.focusCart(game.world);
@@ -91,6 +99,7 @@ function boot(): void {
       renderer.camera.zoomIndex = getSettings().zoom;
       renderer.focusCart(game.world);
       audio.applySettings();
+      refreshAudioHint();
     },
   });
 
