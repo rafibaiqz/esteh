@@ -55,7 +55,8 @@ export class UI {
   private sales: number[] = [];
   private reportShown = false;
   private bankruptShown = -1;
-  private drag: { x: number; y: number; moved: boolean } | null = null;
+  /** Canvas drag; `slop` is how far a finger may wobble before a tap becomes a pan. */
+  private drag: { x: number; y: number; moved: boolean; slop: number } | null = null;
   private busy = false;
   private prepDetails = false;
   /**
@@ -97,7 +98,36 @@ export class UI {
       this.cartPop = false;
     });
     this.renderer.focusCart(game.world);
+    this.watchBars();
     this.refresh(true);
+  }
+
+  /**
+   * The HUD (top) and toolbar (bottom) change size with the layout (e.g. the HUD
+   * wraps onto two rows on a phone). Their real extent is published as CSS
+   * variables so panels, cards and toasts always sit between them.
+   */
+  private watchBars(): void {
+    const stage = $('#stage');
+    const hud = $('#hud');
+    const bar = $('#toolbar');
+    const update = () => {
+      stage.style.setProperty('--hud-h', `${Math.round(hud.offsetTop + hud.offsetHeight)}px`);
+      stage.style.setProperty('--bar-h', `${Math.round(stage.offsetHeight - bar.offsetTop)}px`);
+    };
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(update);
+      ro.observe(hud);
+      ro.observe(bar);
+      ro.observe(stage);
+    }
+    update();
+  }
+
+  /** Compact (phone portrait) layout: panels cover the width, the pre-opening card sits at the bottom. */
+  private get narrow(): boolean {
+    const c = $('#stage').classList;
+    return c.contains('st-narrow') && !c.contains('st-short');
   }
 
   private build(): void {
@@ -161,9 +191,21 @@ export class UI {
     pause.hidden = !this.pauseOpen;
     if (this.pauseOpen) morph(pause, pauseMenu(g));
 
-    const left = this.menu ? (WIDE.includes(this.menu) ? PANEL_W_WIDE : PANEL_W) + 16 : 0;
-    // The view does not move when the card is minimized or restored (only when it appears or goes away).
-    this.renderer.setInsets(left, prep.hidden ? 0 : PREP_W + 16);
+    if (this.narrow) {
+      // Panels cover the width here; keep the cart centred between the HUD and the bottom bar/card.
+      const stage = $('#stage');
+      const menuEl2 = $('#menu');
+      const bottomEdge = !menuEl2.hidden
+        ? menuEl2.offsetTop
+        : prep.hidden || prepMinimized
+          ? stage.offsetHeight - parseFloat(getComputedStyle(stage).getPropertyValue('--bar-h') || '0')
+          : prep.offsetTop;
+      this.renderer.setInsets(0, 0, $('#hud').offsetTop + $('#hud').offsetHeight, stage.offsetHeight - bottomEdge);
+    } else {
+      const left = this.menu ? (WIDE.includes(this.menu) ? PANEL_W_WIDE : PANEL_W) + 16 : 0;
+      // The view does not move when the card is minimized or restored (only when it appears or goes away).
+      this.renderer.setInsets(left, prep.hidden ? 0 : PREP_W + 16);
+    }
 
     this.stockTicks();
     if (s.phase === 'report' && !this.reportShown && !modalOpen()) void this.showReport();
@@ -231,7 +273,7 @@ export class UI {
   private floatText(anchor: HTMLElement, text: string): void {
     const fx = $('#fx');
     const stage = $('#stage').getBoundingClientRect();
-    const scale = stage.width / 1280 || 1;
+    const scale = stage.width / $('#stage').offsetWidth || 1;
     const r = anchor.getBoundingClientRect();
     const el = document.createElement('div');
     el.className = 'float-cash';
@@ -271,13 +313,26 @@ export class UI {
     const pop = $('#cart-pop');
     if (pop.hidden) return;
     const c = this.renderer.cartOnCanvas();
+    const stage = $('#stage');
+    const W = stage.offsetWidth;
     const w = pop.offsetWidth;
     const h = pop.offsetHeight;
-    const rightLimit = 1280 - 8 - (this.game.state.phase === 'prep' && this.prepView === 'expanded' ? PREP_W + 16 : 0);
-    let x = c.x + 46;
-    if (x + w > rightLimit) x = c.x - 46 - w;
-    x = Math.max(8, Math.min(rightLimit - w, x));
-    const y = Math.max(60, Math.min(720 - 84 - h, c.top - 8));
+    const sideCard = !this.narrow && this.game.state.phase === 'prep' && this.prepView === 'expanded';
+    const rightLimit = W - 8 - (sideCard ? PREP_W + 16 : 0);
+    const hudBottom = $('#hud').offsetTop + $('#hud').offsetHeight;
+    const barTop = $('#toolbar').offsetTop;
+    let x: number;
+    let y: number;
+    if (this.narrow) {
+      // Too narrow to sit beside the cart: centre it above the cart (or below when there's no room).
+      x = Math.max(8, Math.min(W - 8 - w, c.x - w / 2));
+      y = c.top - 10 - h >= hudBottom + 8 ? c.top - 10 - h : Math.min(barTop - 8 - h, c.y + 14);
+    } else {
+      x = c.x + 46;
+      if (x + w > rightLimit) x = c.x - 46 - w;
+      x = Math.max(8, Math.min(rightLimit - w, x));
+      y = Math.max(hudBottom + 8, Math.min(barTop - 8 - h, c.top - 8));
+    }
     pop.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }
 
@@ -446,7 +501,7 @@ export class UI {
       return { x: (e.clientX - r.left) / sc, y: (e.clientY - r.top) / sc };
     };
     canvas.addEventListener('pointerdown', (e) => {
-      this.drag = { x: e.clientX, y: e.clientY, moved: false };
+      this.drag = { x: e.clientX, y: e.clientY, moved: false, slop: e.pointerType === 'touch' ? 10 : 2 };
       canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', (e) => {
@@ -454,7 +509,7 @@ export class UI {
       if (this.drag) {
         const dx = (e.clientX - this.drag.x) / sc;
         const dy = (e.clientY - this.drag.y) / sc;
-        if (Math.abs(dx) + Math.abs(dy) > 2) this.drag.moved = true;
+        if (Math.abs(dx) + Math.abs(dy) > this.drag.slop) this.drag.moved = true;
         if (this.drag.moved) {
           this.renderer.camera.pan(dx, dy);
           this.drag.x = e.clientX;

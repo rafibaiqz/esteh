@@ -40,6 +40,8 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  /* No double-tap zoom on buttons (fast taps on steppers), pinch-zoom still works. */
+  touch-action: manipulation;
 }
 button:disabled {
   cursor: not-allowed;
@@ -52,6 +54,11 @@ button:disabled {
   overflow: auto;
 }
 #stage {
+  /* Size is set by fitStage() to the screen's shape (1280×720 on a 16:9 screen). */
+  --hud-h: 50px; /* bottom edge of the HUD (measured at runtime) */
+  --bar-h: 74px; /* space taken by the toolbar at the bottom (measured at runtime) */
+  --inv: 1; /* stage px per screen px (1 / scale) */
+  --stage-h: 720px; /* stage height (set by fitStage) */
   position: absolute;
   width: 1280px;
   height: 720px;
@@ -319,7 +326,7 @@ h3 {
 /* ------------------------------------------------------------ location card (top-left) */
 #loc-hud {
   position: absolute;
-  top: 58px;
+  top: calc(var(--hud-h) + 8px);
   right: 8px;
   width: 236px;
   z-index: 5;
@@ -481,8 +488,8 @@ h3 {
 #menu {
   position: absolute;
   left: 8px;
-  top: 58px;
-  bottom: 78px;
+  top: calc(var(--hud-h) + 8px);
+  bottom: calc(var(--bar-h) + 4px);
   width: 470px;
   z-index: 10;
   overflow-y: auto;
@@ -506,7 +513,7 @@ h3 {
 #prep {
   position: absolute;
   right: 8px;
-  top: 58px;
+  top: calc(var(--hud-h) + 8px);
   width: 292px;
   z-index: 8;
 }
@@ -1190,7 +1197,7 @@ h3 {
 #toasts {
   position: absolute;
   left: 50%;
-  top: 58px;
+  top: calc(var(--hud-h) + 8px);
   z-index: 45;
   transform: translateX(-50%);
   display: flex;
@@ -1199,6 +1206,7 @@ h3 {
   gap: 4px;
   pointer-events: none;
   width: 520px;
+  max-width: calc(100% - 16px);
 }
 .toast {
   max-width: 100%;
@@ -1280,7 +1288,8 @@ h3 {
 }
 .modal {
   width: 440px;
-  max-height: 680px;
+  max-width: calc(100% - 20px);
+  max-height: min(680px, calc(100% - 20px));
   display: flex;
   flex-direction: column;
   background: var(--ivory);
@@ -1325,4 +1334,214 @@ h3 {
   background: var(--caramel);
   border-radius: 5px;
   border: 2px solid var(--ivory-2);
+}
+
+/* ============================================================ compact layouts (phones, tablets)
+   fitStage() sets on #stage:
+   .st-narrow  stage narrower than 760 stage px (portrait phones)
+   .st-short   stage lower than 560 stage px (landscape phones)
+   .st-touch   coarse pointer (finger): bigger touch targets
+   The desktop layout above is untouched; these rules only rearrange what doesn't fit. */
+
+/* ---- touch: comfortable targets (about 35+ screen px at the smallest scale) */
+.st-touch #hud {
+  height: auto;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.st-touch #hud .pill {
+  height: 50px;
+}
+.st-touch .ing {
+  height: 44px;
+  padding: 0 6px 0 4px;
+}
+.st-touch #hud .spd {
+  min-width: 46px;
+  height: 44px;
+}
+.st-touch #hud .menu-btn {
+  width: 52px;
+}
+.st-touch .ctl-btn {
+  min-width: 44px;
+  height: 44px;
+}
+.st-touch .btn,
+.st-touch .pbtn {
+  min-height: 44px;
+}
+.st-touch .btn.big {
+  min-height: 52px;
+}
+.st-touch .mini {
+  width: 30px;
+  height: 30px;
+}
+.st-touch .link {
+  padding: 4px 12px;
+}
+/* When the bigger HUD doesn't fit one row, the speed controls and menu button wrap together, right-aligned. */
+.st-touch:not(.st-narrow) #hud .hud-gap {
+  display: none;
+}
+.st-touch:not(.st-narrow) #hud .pill.ctrl {
+  margin-left: auto;
+}
+.st-touch .tool:hover {
+  transform: none;
+}
+
+/* ---- narrow: HUD wraps onto rows; its real height is measured into --hud-h. */
+.st-narrow #hud {
+  height: auto;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.st-narrow #hud .pill {
+  height: 50px;
+}
+.st-narrow #hud .hud-gap {
+  display: none;
+}
+.st-narrow #hud .pill.cash {
+  order: 1;
+  flex: 1 1 auto;
+}
+.st-narrow #hud .pill.time {
+  order: 2;
+}
+.st-narrow #hud .pill.wx {
+  order: 3;
+}
+.st-narrow #hud .menu-btn {
+  order: 4;
+}
+.st-narrow #hud .pill.stock {
+  order: 5;
+  flex: 1 1 auto;
+  justify-content: space-between;
+}
+.st-narrow #hud .pill.sales {
+  order: 6;
+}
+.st-narrow #hud .pill.ctrl {
+  order: 7;
+  flex: 1 1 auto;
+  justify-content: space-between;
+}
+.st-narrow #hud .spd {
+  flex: 1;
+}
+.st-narrow .pill.cash b {
+  min-width: 0;
+}
+
+/* Toolbar spans the width; its buttons share it. */
+.st-narrow #toolbar {
+  right: 8px;
+  gap: 2px;
+}
+.st-narrow .tool {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  height: 54px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+.st-narrow .tool span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Map controls sit above the toolbar. */
+.st-narrow #ctl {
+  bottom: calc(var(--bar-h) + 6px);
+}
+.st-narrow .paused-tag {
+  bottom: 52px;
+}
+.st-narrow #loc-hud {
+  width: min(236px, calc(100% - 16px));
+}
+
+/* ---- portrait phones: panel and pre-opening card become bottom sheets, the cart stays above. */
+.st-narrow:not(.st-short) #menu,
+.st-narrow:not(.st-short) #menu.wide {
+  right: 8px;
+  width: auto;
+  top: max(calc(var(--hud-h) + 8px), calc(var(--stage-h) * 0.4));
+}
+.st-narrow:not(.st-short) #prep {
+  left: 8px;
+  right: 8px;
+  top: auto;
+  bottom: calc(var(--bar-h) + 6px);
+  width: auto;
+  max-height: calc(100% - var(--hud-h) - var(--bar-h) - 24px);
+  overflow-y: auto;
+  border-radius: 12px;
+}
+.st-narrow:not(.st-short) #prep.mini {
+  max-width: none;
+}
+.st-narrow:not(.st-short) .pp-mini {
+  width: 100%;
+}
+.st-narrow .pm-dem {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* ---- landscape phones: slim toolbar, side panels that scroll, no location card. */
+.st-short .tool {
+  height: 44px;
+  flex-direction: row;
+  gap: 4px;
+  padding: 0 6px;
+  width: auto;
+}
+.st-short .tool .ico {
+  width: 22px;
+  height: 22px;
+}
+.st-short.st-narrow .tool span {
+  display: none;
+}
+.st-short #menu,
+.st-short #menu.wide {
+  width: min(470px, calc(100% - 16px));
+}
+.st-short #prep {
+  max-height: calc(100% - var(--hud-h) - var(--bar-h) - 16px);
+  overflow-y: auto;
+}
+.st-short #loc-hud {
+  display: none;
+}
+/* On a landscape phone the pre-opening card can't show everything at once: keep the
+   decision (open / change location / day off) right under the location name and let
+   the details scroll below it. */
+.st-short .pp {
+  display: flex;
+  flex-direction: column;
+}
+.st-short .pp-day {
+  display: none;
+}
+.st-short .pp-loc {
+  order: -3;
+  font-size: 19px;
+}
+.st-short .pp > .btn.big {
+  order: -2;
+  margin: 2px 0 0;
+}
+.st-short .pp-btns {
+  order: -1;
+  margin: 6px 0 4px;
 }

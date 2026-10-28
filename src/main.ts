@@ -12,21 +12,63 @@ import { toast } from './ui/dom';
 import { AudioManager } from './audio/AudioManager';
 import { bindAudio } from './audio/gameSounds';
 
-const STAGE_W = 1280;
-const STAGE_H = 720;
+/** Design size of the stage: on a 16:9 screen the stage is exactly this, as before. */
+const DESIGN_W = 1280;
+const DESIGN_H = 720;
+/** Smallest UI scale (screen px per stage px), so text and touch targets stay usable on phones. */
+const MIN_SCALE = 0.8;
+/** Stage widths/heights below these switch to the compact (phone) layout rules. */
+const NARROW_BELOW = 760;
+const SHORT_BELOW = 560;
 
-/** Scales the fixed 1280×720 stage uniformly to fit the window (letterboxed, never stretched). */
-function fitStage(): void {
+let safeProbe: HTMLElement | null = null;
+
+/** Device safe areas (notch, home indicator) in CSS px, read from env() via a hidden probe. */
+function safeArea(): { top: number; right: number; bottom: number; left: number } {
+  if (!safeProbe) {
+    safeProbe = document.createElement('div');
+    safeProbe.style.cssText =
+      'position:fixed;inset:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.appendChild(safeProbe);
+  }
+  const cs = getComputedStyle(safeProbe);
+  const px = (v: string) => parseFloat(v) || 0;
+  return { top: px(cs.paddingTop), right: px(cs.paddingRight), bottom: px(cs.paddingBottom), left: px(cs.paddingLeft) };
+}
+
+/**
+ * Fits the stage to the screen without letterboxing or clipping. The stage
+ * takes the screen's own shape: a 16:9 desktop gets exactly 1280×720 (so the
+ * desktop layout is unchanged), a portrait phone gets a tall, narrow stage and
+ * the compact layout rules (`st-narrow` / `st-short`). One uniform scale maps
+ * stage px to screen px; all input code converts through getBoundingClientRect,
+ * so clicks and touches stay aligned. Returns the scale.
+ */
+function fitStage(): number {
   const stage = document.getElementById('stage')!;
+  const viewport = document.getElementById('viewport')!;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const scale = Math.max(0.5, Math.min(vw / STAGE_W, vh / STAGE_H));
+  const safe = safeArea();
+  const availW = Math.max(200, vw - safe.left - safe.right);
+  const availH = Math.max(200, vh - safe.top - safe.bottom);
+  const scale = Math.max(Math.min(availW / DESIGN_W, availH / DESIGN_H), Math.min(MIN_SCALE, availW / 360, availH / 360));
+  const w = Math.round(availW / scale);
+  const h = Math.round(availH / scale);
+  stage.style.width = `${w}px`;
+  stage.style.height = `${h}px`;
   stage.style.transform = `scale(${scale})`;
-  const viewport = document.getElementById('viewport')!;
-  viewport.style.width = `${Math.max(vw, STAGE_W * scale)}px`;
-  viewport.style.height = `${Math.max(vh, STAGE_H * scale)}px`;
-  stage.style.left = `${Math.max(0, (vw - STAGE_W * scale) / 2)}px`;
-  stage.style.top = `${Math.max(0, (vh - STAGE_H * scale) / 2)}px`;
+  stage.style.left = `${safe.left}px`;
+  stage.style.top = `${safe.top}px`;
+  stage.style.setProperty('--inv', String(1 / scale));
+  stage.style.setProperty('--stage-h', `${h}px`);
+  stage.classList.toggle('st-narrow', w < NARROW_BELOW);
+  stage.classList.toggle('st-short', h < SHORT_BELOW);
+  stage.classList.toggle('st-portrait', h > w);
+  stage.classList.toggle('st-touch', window.matchMedia?.('(pointer: coarse)').matches ?? false);
+  viewport.style.width = `${vw}px`;
+  viewport.style.height = `${vh}px`;
+  return scale;
 }
 
 /** Background game for the title screen: never saved. */
@@ -39,14 +81,27 @@ function demoState(): GameState {
 }
 
 function boot(): void {
-  fitStage();
-  window.addEventListener('resize', fitStage);
+  let scale = fitStage();
 
   const game = new Game(demoState());
   const renderer = new Renderer(document.getElementById('world') as HTMLCanvasElement);
   const titleRenderer = new Renderer(document.getElementById('title-canvas') as HTMLCanvasElement);
   titleRenderer.camera.zoomIndex = 1;
   titleRenderer.pauseTint = false;
+  // Canvas backing resolution follows the real screen pixels (capped for phones' memory and speed).
+  const applyResolution = () => {
+    const r = Math.max(1, Math.min(2, scale * (window.devicePixelRatio || 1)));
+    renderer.resolution = r;
+    titleRenderer.resolution = r;
+  };
+  applyResolution();
+  const refit = () => {
+    scale = fitStage();
+    applyResolution();
+  };
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', () => setTimeout(refit, 50));
+  window.visualViewport?.addEventListener('resize', refit);
   const ui = new UI(game, renderer);
   // Audio lives for the whole session and is ready from the very first screen.
   const audio = new AudioManager();

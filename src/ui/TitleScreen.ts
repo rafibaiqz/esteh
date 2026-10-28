@@ -234,7 +234,7 @@ export class TitleScreen {
         <header class="wordmark"><span class="glass-logo"><i></i></span><div><b>ESTEH</b><small>Juragan Es Teh</small></div></header>
         <div class="title-body">${body}</div>
       </div>
-      <div class="title-foot"><span>Versi ${VERSION} · ${storageAvailable() ? 'Progres tersimpan di browser ini' : 'Penyimpanan browser tidak tersedia!'}</span><span class="byline">A game by Rafi Aziz</span></div>`;
+      <div class="title-foot"><span class="byline">Test a Game by Rafi Aziz</span><span class="version">Versi ${VERSION}<small class="save-note"> · ${storageAvailable() ? 'Progres tersimpan di browser ini' : 'Penyimpanan browser tidak tersedia!'}</small></span></div>`;
   }
 
   private mainHtml(): string {

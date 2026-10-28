@@ -78,10 +78,17 @@ export function initTooltips(): void {
     if (y + h > stage.offsetHeight - 4) y = (e.clientY - sr.top) / scale - h - 8;
     tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   };
+  // On touch screens a tap also produces a mouseover: show the tip briefly, then let it go.
+  let touch = false;
+  let hideTimer = 0;
+  document.addEventListener('pointerdown', (e) => {
+    touch = e.pointerType === 'touch';
+  }, true);
   document.addEventListener('mouseover', (e) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
     if (el === current) return;
     current = el;
+    window.clearTimeout(hideTimer);
     if (!el) {
       tip.classList.remove('show');
       return;
@@ -89,6 +96,11 @@ export function initTooltips(): void {
     tip.innerHTML = el.dataset.tip!;
     tip.classList.add('show');
     place(e);
+    if (touch)
+      hideTimer = window.setTimeout(() => {
+        tip.classList.remove('show');
+        current = null;
+      }, 2200);
   });
   document.addEventListener('mousemove', (e) => {
     if (current) {

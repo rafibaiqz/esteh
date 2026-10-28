@@ -1497,15 +1497,27 @@ details.more .tbl {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  gap: 12px;
   font-size: 11px;
   font-weight: 700;
   color: var(--ivory);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 .title-foot .byline {
   font: 700 14px var(--font-head);
   letter-spacing: 0.6px;
   color: var(--cream);
+}
+.title-foot .version {
+  text-align: right;
+  /* Hosting badges (e.g. Netlify's, ~40 px tall in the bottom-right of the browser window)
+     must not cover it: lift it by that much in screen px, whatever the stage scale. */
+  margin-bottom: calc(52px * var(--inv));
+}
+.title-foot .save-note {
+  color: var(--cream);
+  font-size: 11px;
 }
 
 /* ------------------------------------------------------------ audio settings */
@@ -1624,4 +1636,108 @@ details.more .tbl {
 .sale-effect {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* ============================================================ compact layouts (phones) */
+.st-narrow .grid2 {
+  grid-template-columns: 1fr;
+}
+.st-narrow .cart-card {
+  grid-template-columns: 1fr;
+}
+.st-narrow .cart-preview {
+  height: 150px;
+}
+.st-narrow .card.loc .thumb {
+  width: 108px;
+  height: 70px;
+}
+.st-narrow .pack {
+  width: 60px;
+}
+.st-narrow .tbl {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.st-narrow .kv-grid.four,
+.st-narrow .report-top {
+  grid-template-columns: repeat(2, 1fr);
+}
+.st-narrow .meters {
+  grid-template-columns: 1fr;
+}
+.st-narrow .rc {
+  grid-template-columns: 100px 1fr;
+}
+.st-narrow .rc-glass .glass {
+  transform: scale(1.15);
+}
+.st-touch .step {
+  width: 36px;
+  height: 36px;
+}
+.st-narrow .modal-actions {
+  flex-wrap: wrap;
+}
+.st-narrow .settings {
+  grid-template-columns: 1fr;
+}
+.st-narrow .t-panel,
+.st-narrow .t-panel.wide {
+  width: calc(100% - 24px);
+  max-height: calc(var(--stage-h) - 230px);
+}
+.st-narrow .title-wrap {
+  padding-top: 40px;
+}
+.st-touch .tbtn {
+  min-height: 48px;
+  justify-content: center;
+}
+.st-narrow .title-foot .save-note {
+  display: none;
+}
+.st-narrow .audio-hint {
+  bottom: 40px;
+  max-width: calc(100% - 24px);
+  white-space: nowrap;
+}
+
+/* Landscape phones: a smaller logo so the menu fits the height. */
+.st-short .title-wrap {
+  padding-top: 12px;
+  gap: 10px;
+}
+.st-short .wordmark {
+  padding: 6px 16px 6px 12px;
+}
+.st-short .wordmark b {
+  font-size: 40px;
+}
+.st-short .wordmark small {
+  font-size: 12px;
+  margin-top: 2px;
+}
+.st-short .glass-logo {
+  width: 30px;
+  height: 42px;
+}
+.st-short .title-menu {
+  gap: 6px;
+  padding: 8px;
+}
+.st-short .tbtn {
+  padding: 6px 14px;
+}
+.st-short .t-panel,
+.st-short .t-panel.wide {
+  max-height: calc(var(--stage-h) - 110px);
+}
+/* On a landscape phone a form or list gets the whole height; the logo only shows on the main menu. */
+.st-short .title-wrap:not(.is-main) .wordmark {
+  display: none;
+}
+.st-short .title-wrap:not(.is-main) .t-panel {
+  max-height: calc(var(--stage-h) - 24px);
 }

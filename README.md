@@ -299,7 +299,15 @@ Antarmuka memakai identitas **Amber Tea + Cream**:
 | Positif | hijau lembut | `#397A55` |
 | Negatif | merah hangat | `#B9473E` |
 
-Semua warna diambil dari variabel CSS di `src/styles/main.css`. Warna ini dipakai secukupnya untuk antarmuka (krem dan cokelat); peta tetap memakai warna alami. Tampilan diuji pada 1366×768, 1600×900, dan 1920×1080: panggung 1280×720 diperbesar seragam tanpa terdistorsi.
+Semua warna diambil dari variabel CSS di `src/styles/main.css`. Warna ini dipakai secukupnya untuk antarmuka (krem dan cokelat); peta tetap memakai warna alami. Ukuran layar: panggung permainan mengikuti bentuk layar. Di layar 16:9 ukurannya tepat 1280×720 (tampilan desktop tidak berubah); di layar lain ia melebar atau meninggi tanpa pita hitam dan tanpa terpotong, dengan skala minimum supaya teks dan tombol tetap terbaca di ponsel. Notch dan indikator home iPhone dihormati (safe area), dan rotasi layar langsung disesuaikan.
+- **Ponsel tegak:** HUD terbagi menjadi beberapa baris, bilah alat selebar layar, panel menu dan kartu persiapan muncul sebagai lembar dari bawah sehingga gerobak tetap terlihat di atasnya, dan kotak gerobak muncul di atas gerobak.
+- **Ponsel mendatar:** bilah alat ramping, kartu persiapan menaruh tombol **BUKA LAPAK**, Ganti Lokasi, dan Libur di bagian atas, dan panel dapat digulir.
+- **Layar sentuh** (ponsel dan tablet): tombol dan pengatur dibuat lebih besar, tooltip hanya muncul sebentar saat diketuk, dan ketukan pada gerobak tidak dianggap sebagai geser peta.
+- Kanvas digambar sesuai piksel layar yang sebenarnya (maksimal 2× agar ringan), jadi seni piksel dan balon kata tetap tajam.
+
+Sudah diperiksa di 320×568, 375×667, 390×844, 430×932, 768×1024, 568×320, 844×390, 932×430, 1366×768, dan 1920×1080: semua elemen penting terlihat, tombol utama bisa diketuk, dan gerobak tetap di area bermain.
+
+Di layar judul, **"Test a Game by Rafi Aziz"** ada di kiri bawah dan nomor versi di kanan bawah, sedikit diangkat supaya tidak tertutup lencana "Powered by Netlify" di pojok kanan bawah.
 
 Gaya peta:
 - seni piksel isometrik dengan garis tepi gelap yang konsisten;

@@ -53,6 +53,13 @@ export class Renderer {
   /** Horizontal shift of the view centre (display px) so overlay panels never hide the cart. */
   private inset = 0;
   private insetTarget = 0;
+  private insetY = 0;
+  private insetTargetY = 0;
+  /** Canvas pixels per CSS pixel of the canvas element (screen scale × device pixel ratio). */
+  resolution = 1;
+  /** Size of the canvas element in its own CSS px (stage px); all picking uses these units. */
+  private viewW = 0;
+  private viewH = 0;
   private seller: { text: string; tone: 'good' | 'ok' | 'bad'; t: number } | null = null;
   /**
    * Clock for world animations (water, swaying trees, cart lights, the seller's
@@ -73,8 +80,9 @@ export class Renderer {
    * Screen space covered by UI on the left/right edge (display px). The world
    * view slides so the cart stays centred in the part that is still visible.
    */
-  setInsets(left: number, right: number): void {
+  setInsets(left: number, right: number, top = 0, bottom = 0): void {
     this.insetTarget = (left - right) / 2;
+    this.insetTargetY = (top - bottom) / 2;
   }
 
   /** Short line said by the seller (drawn above the cart at display resolution). */
@@ -122,9 +130,14 @@ export class Renderer {
   private resize(): { w: number; h: number } {
     const w = Math.max(64, Math.round(this.canvas.clientWidth));
     const h = Math.max(64, Math.round(this.canvas.clientHeight));
-    if (this.canvas.width !== w || this.canvas.height !== h) {
-      this.canvas.width = w;
-      this.canvas.height = h;
+    this.viewW = w;
+    this.viewH = h;
+    // The backing store follows the real screen pixels, so pixel art and speech text stay sharp.
+    const pw = Math.round(w * this.resolution);
+    const ph = Math.round(h * this.resolution);
+    if (this.canvas.width !== pw || this.canvas.height !== ph) {
+      this.canvas.width = pw;
+      this.canvas.height = ph;
     }
     const z = this.camera.zoom;
     const bw = Math.ceil(w / z);
@@ -154,12 +167,14 @@ export class Renderer {
     this.worldT += worldDt;
     this.inset += (this.insetTarget - this.inset) * Math.min(1, dt * 9);
     if (Math.abs(this.insetTarget - this.inset) < 0.5) this.inset = this.insetTarget;
+    this.insetY += (this.insetTargetY - this.insetY) * Math.min(1, dt * 9);
+    if (Math.abs(this.insetTargetY - this.insetY) < 0.5) this.insetY = this.insetTargetY;
     if (this.seller) {
       this.seller.t -= worldDt;
       if (this.seller.t <= 0) this.seller = null;
     }
     const ox = Math.round(w / 2 + this.inset / this.camera.zoom - this.camera.cx);
-    const oy = Math.round(h / 2 - this.camera.cy);
+    const oy = Math.round(h / 2 + this.insetY / this.camera.zoom - this.camera.cy);
     this.offset = { x: ox, y: oy };
     ctx.translate(ox, oy);
 
@@ -189,17 +204,18 @@ export class Renderer {
 
     // Blit to the display canvas with nearest-neighbour scaling.
     const out = this.ctx;
-    out.setTransform(1, 0, 0, 1, 0, 0);
+    // Everything below is drawn in canvas CSS px; the transform maps it onto the backing pixels.
+    out.setTransform(this.resolution, 0, 0, this.resolution, 0, 0);
     out.imageSmoothingEnabled = false;
     out.drawImage(this.buffer, 0, 0, w * this.camera.zoom, h * this.camera.zoom);
     this.drawReactions(out);
     if (this.flash > 0.01) {
       out.fillStyle = `rgba(235,240,255,${0.55 * this.flash})`;
-      out.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      out.fillRect(0, 0, this.viewW, this.viewH);
     }
     if (s.paused && this.pauseTint) {
       out.fillStyle = 'rgba(10,30,10,0.25)';
-      out.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      out.fillRect(0, 0, this.viewW, this.viewH);
     }
   }
 
@@ -476,7 +492,7 @@ export class Renderer {
     const tw = Math.max(...lines.map((l) => out.measureText(l).width));
     const bw = tw + 14;
     const bh = lines.length * 15 + 8;
-    const bx = Math.round(Math.max(4, Math.min(this.canvas.width - bw - 4, px - bw / 2)));
+    const bx = Math.round(Math.max(4, Math.min(this.viewW - bw - 4, px - bw / 2)));
     const by = Math.round(Math.max(4, py - bh));
     const [bg, edge] = seller ? (['#6b4226', '#e7b65c'] as const) : colors[tone];
     out.globalAlpha = alpha;
