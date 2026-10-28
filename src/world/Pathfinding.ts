@@ -39,19 +39,17 @@ export class Pathfinder {
     const start = a.y * W + a.x;
     const goal = b.y * W + b.x;
     this.state.fill(0);
-    const open: number[] = [start];
+    // Binary min-heap on f (lazy deletion: stale entries are skipped when popped).
+    const heap = new MinHeap();
     this.g[start] = 0;
     this.f[start] = heuristic(a.x, a.y, b.x, b.y);
     this.from[start] = -1;
     this.state[start] = 1;
+    heap.push(start, this.f[start]);
 
-    while (open.length) {
-      // Linear scan is fine on a 24×24 grid.
-      let bi = 0;
-      for (let i = 1; i < open.length; i++) if (this.f[open[i]] < this.f[open[bi]]) bi = i;
-      const cur = open[bi];
-      open[bi] = open[open.length - 1];
-      open.pop();
+    while (heap.size) {
+      const cur = heap.pop();
+      if (this.state[cur] === 2) continue;
       if (cur === goal) return this.rebuild(goal);
       this.state[cur] = 2;
       const cx = cur % W;
@@ -70,10 +68,8 @@ export class Pathfinder {
           this.g[ni] = cost;
           this.f[ni] = cost + heuristic(nx, ny, b.x, b.y);
           this.from[ni] = cur;
-          if (this.state[ni] !== 1) {
-            this.state[ni] = 1;
-            open.push(ni);
-          }
+          this.state[ni] = 1;
+          heap.push(ni, this.f[ni]);
         }
     }
     return null;
@@ -91,4 +87,55 @@ function heuristic(ax: number, ay: number, bx: number, by: number): number {
   const dx = Math.abs(ax - bx);
   const dy = Math.abs(ay - by);
   return Math.max(dx, dy) + 0.414 * Math.min(dx, dy);
+}
+
+/** Small binary min-heap of tile indices keyed by priority. */
+class MinHeap {
+  private items: number[] = [];
+  private keys: number[] = [];
+
+  get size(): number {
+    return this.items.length;
+  }
+
+  push(item: number, key: number): void {
+    const it = this.items;
+    const ks = this.keys;
+    let i = it.length;
+    it.push(item);
+    ks.push(key);
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (ks[p] <= key) break;
+      it[i] = it[p];
+      ks[i] = ks[p];
+      i = p;
+    }
+    it[i] = item;
+    ks[i] = key;
+  }
+
+  pop(): number {
+    const it = this.items;
+    const ks = this.keys;
+    const top = it[0];
+    const lastItem = it.pop()!;
+    const lastKey = ks.pop()!;
+    const n = it.length;
+    if (n) {
+      let i = 0;
+      for (;;) {
+        let c = 2 * i + 1;
+        if (c >= n) break;
+        if (c + 1 < n && ks[c + 1] < ks[c]) c++;
+        if (ks[c] >= lastKey) break;
+        it[i] = it[c];
+        ks[i] = ks[c];
+        i = c;
+      }
+      it[i] = lastItem;
+      ks[i] = lastKey;
+    }
+    return top;
+  }
 }

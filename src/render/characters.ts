@@ -206,7 +206,14 @@ export function getSprite(l: Look, p: Pose): HTMLCanvasElement {
   const key = `${l.key ?? (l.key = lookKey(l))}|${p.facing}|${p.flip ? 1 : 0}|${p.frame}|${p.cup ? 1 : 0}|${p.act ?? ''}|${Math.round((p.actPhase ?? 0) * 4)}|${p.apron ?? ''}|${p.breathe ?? 0}`;
   let spr = cache.get(key);
   if (!spr) {
-    if (cache.size > 3000) cache.clear();
+    // Evict the oldest quarter instead of dropping everything, so a busy street never rebuilds all sprites at once.
+    if (cache.size > 6000) {
+      let n = 1500;
+      for (const k of cache.keys()) {
+        cache.delete(k);
+        if (--n <= 0) break;
+      }
+    }
     spr = build(l, p);
     cache.set(key, spr);
   }

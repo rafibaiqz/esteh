@@ -516,13 +516,123 @@ h3 {
   border: 2px solid var(--amber);
   border-radius: 12px;
   box-shadow: 0 4px 0 rgba(56, 39, 29, 0.2), 0 10px 28px rgba(56, 39, 29, 0.35);
-  animation: pop-in 0.18s ease-out;
 }
 @keyframes pop-in {
   from {
     opacity: 0;
     transform: scale(0.96);
   }
+}
+.pp {
+  position: relative;
+}
+.pp-min {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--caramel);
+  border-radius: 7px;
+  background: var(--ivory-2);
+  color: var(--tea);
+  transition: background 0.1s, transform 0.06s;
+}
+.pp-min i {
+  display: block;
+  width: 11px;
+  height: 3px;
+  margin: 9px auto 0;
+  border-radius: 2px;
+  background: currentColor;
+}
+.pp-min:hover {
+  background: var(--honey);
+  border-color: var(--amber);
+}
+.pp-min:active {
+  transform: scale(0.92);
+}
+#prep.mini {
+  width: auto;
+  max-width: 680px;
+}
+.pp-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  max-width: 100%;
+  padding: 0 6px 0 10px;
+  background: var(--glass);
+  border: 2px solid var(--amber);
+  border-radius: 10px;
+  box-shadow: var(--float);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.pp-mini:hover {
+  border-color: var(--amber-deep);
+  background: #fff1d2;
+}
+.pm-loc {
+  font: 700 15px var(--font-head);
+  color: var(--tea);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.pm-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--caramel);
+}
+.pp-mini b.d1,
+.pp-mini b.d2 {
+  color: var(--neg);
+}
+.pp-mini b.d4,
+.pp-mini b.d5 {
+  color: var(--pos);
+}
+.pm-warn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--neg);
+  color: var(--ivory);
+  font: 900 11px/16px var(--font);
+  text-align: center;
+}
+.pm-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: var(--amber);
+  color: var(--ivory);
+  font: 700 12px var(--font-head);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.pm-open i {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+}
+.pp-mini:hover .pm-open {
+  background: var(--amber-deep);
+}
+.pp-day,
+.pp-loc {
+  padding-right: 28px;
 }
 .pp-day {
   font: 700 11px var(--font-head);

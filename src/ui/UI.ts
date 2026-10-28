@@ -15,7 +15,7 @@ import { $, confirmDialog, initTooltips, modal, modalOpen, morph, showFloatingTi
 import { icon, type IconName } from './icons';
 import { cartsMenu, locationMenu, recipeMenu, suppliesMenu, upgradesMenu } from './menusBusiness';
 import { marketingMenu, staffMenu, statsMenu } from './menusManage';
-import { cartPopover, controlsHtml, howtoHtml, hudHtml, locHud, pauseMenu, prepPopup, reportBody } from './panels';
+import { cartPopover, controlsHtml, howtoHtml, hudHtml, locHud, pauseMenu, prepMini, prepPopup, reportBody } from './panels';
 
 export type MenuId = 'location' | 'upgrades' | 'staff' | 'marketing' | 'recipe' | 'supplies' | 'carts' | 'stats';
 
@@ -57,6 +57,11 @@ export class UI {
   private drag: { x: number; y: number; moved: boolean } | null = null;
   private busy = false;
   private prepDetails = false;
+  /**
+   * How the pre-opening card is shown. Purely a view state: minimizing never
+   * opens the stand, charges costs or changes the day.
+   */
+  private prepView: 'expanded' | 'minimized' = 'expanded';
   private cartPop = false;
   private pauseOpen = false;
   private lastInv: Record<string, number> = {};
@@ -136,7 +141,9 @@ export class UI {
 
     const prep = $('#prep');
     prep.hidden = s.phase !== 'prep';
-    if (!prep.hidden) morph(prep, prepPopup(g, this.prepDetails));
+    const prepMinimized = this.prepView === 'minimized';
+    prep.classList.toggle('mini', prepMinimized);
+    if (!prep.hidden) morph(prep, prepMinimized ? prepMini(g) : prepPopup(g, this.prepDetails));
 
     const pop = $('#cart-pop');
     if (this.cartPop && s.phase !== 'report') {
@@ -152,6 +159,7 @@ export class UI {
     if (this.pauseOpen) morph(pause, pauseMenu(g));
 
     const left = this.menu ? (WIDE.includes(this.menu) ? PANEL_W_WIDE : PANEL_W) + 16 : 0;
+    // The view does not move when the card is minimized or restored (only when it appears or goes away).
     this.renderer.setInsets(left, prep.hidden ? 0 : PREP_W + 16);
 
     this.stockTicks();
@@ -260,7 +268,7 @@ export class UI {
     const c = this.renderer.cartOnCanvas();
     const w = pop.offsetWidth;
     const h = pop.offsetHeight;
-    const rightLimit = 1280 - 8 - (this.game.state.phase === 'prep' ? PREP_W + 16 : 0);
+    const rightLimit = 1280 - 8 - (this.game.state.phase === 'prep' && this.prepView === 'expanded' ? PREP_W + 16 : 0);
     let x = c.x + 46;
     if (x + w > rightLimit) x = c.x - 46 - w;
     x = Math.max(8, Math.min(rightLimit - w, x));
@@ -297,6 +305,7 @@ export class UI {
     this.game.nextDay();
     this.sales = [];
     this.prepDetails = false;
+    this.prepView = 'expanded';
   }
 
   private async showBankrupt(): Promise<void> {
@@ -321,6 +330,7 @@ export class UI {
     this.cartPop = false;
     this.pauseOpen = false;
     this.prepDetails = false;
+    this.prepView = 'expanded';
     this.statsTab = 'today';
     this.lastInv = {};
     this.refresh(true);
@@ -375,6 +385,11 @@ export class UI {
         e.preventDefault();
         if (this.game.state.phase === 'open') this.game.togglePause();
       } else if (k === '1' || k === '2' || k === '3') this.game.setSpeed(k === '3' ? 4 : Number(k));
+      else if (k.startsWith('Arrow')) {
+        e.preventDefault();
+        const step = 48;
+        this.renderer.camera.pan(k === 'ArrowLeft' ? step : k === 'ArrowRight' ? -step : 0, k === 'ArrowUp' ? step : k === 'ArrowDown' ? -step : 0);
+      } else if (k === 'c' || k === 'C') this.renderer.focusCart(this.game.world, true);
       else if (k === '+' || k === '=') this.zoom(1);
       else if (k === '-') this.zoom(-1);
       else if (k.toLowerCase() === 'm') this.showPause();
@@ -492,6 +507,14 @@ export class UI {
           this.prepDetails = !this.prepDetails;
           this.refresh(true);
           break;
+        case 'prep-min':
+          this.prepView = 'minimized';
+          this.refresh(true);
+          break;
+        case 'prep-restore':
+          this.prepView = 'expanded';
+          this.refresh(true);
+          break;
         case 'buy':
           g.buySupply(d.id as Ingredient, Number(d.pack));
           this.flashRow(`#menu .supply[data-row="${d.id}"]`);
@@ -586,7 +609,7 @@ export class UI {
           this.zoom(Number(d.d));
           break;
         case 'focus':
-          this.renderer.focusCart(g.world);
+          this.renderer.focusCart(g.world, true);
           break;
         case 'save': {
           const ok = g.save();

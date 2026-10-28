@@ -22,6 +22,7 @@ import {
   type DemandBreakdown,
 } from './EconomySystem';
 import { eventBudgetFor, eventCrowdWeight } from './EventSystem';
+import { BASE_VIEW_RADIUS, exposureFor, trafficScale } from './ExposureSystem';
 import { consumeCup, cupsPossible, limitingIngredient } from './InventorySystem';
 import type { Modifiers } from './Modifiers';
 import { lostReaction, reactionFor, type Reaction } from './ReactionSystem';
@@ -86,10 +87,18 @@ export class World {
   private demandCache: DemandBreakdown | null = null;
   private demandAge = 0;
 
+  /** Arrival multiplier that keeps the cart's customer flow independent of map size. */
+  readonly trafficScale: number;
+  /** Most pedestrians on screen at once (grows with the size of the neighbourhood). */
+  readonly maxPedestrians: number;
+
   constructor(readonly locationId: LocationId) {
     this.map = buildMap(locationId);
     this.pathfinder = new Pathfinder(this.map);
     this.def = LOCATIONS[locationId];
+    this.trafficScale = trafficScale(locationId);
+    // Room for the extra walkers of a larger map (and of busier, more spread-out ones).
+    this.maxPedestrians = Math.round(MAX_PEDESTRIANS * Math.max(1, (this.map.width * this.map.height) / (24 * 24)) * Math.max(1.6, this.trafficScale * 0.75));
   }
 
   /** World position of queue slot i (slot 0 = being served). */
@@ -100,16 +109,43 @@ export class World {
 
   /** Pre-populates the street so the scene doesn't start empty. */
   warmUp(ctx: SimContext): void {
-    for (let i = 0; i < 10; i++) {
-      const c = this.spawn(ctx, true, false);
-      if (c) {
-        const steps = Math.floor(Math.random() * Math.max(1, c.path.length - 2));
-        c.pathIndex = Math.min(c.path.length - 1, 1 + steps);
-        const p = c.path[c.pathIndex - 1];
-        c.x = p.x + 0.5 + c.offX;
-        c.y = p.y + 0.5 + c.offY;
-        if (c.decideAt >= 0 && c.pathIndex > c.decideAt) c.decided = true;
-      }
+    const n = Math.round(10 * Math.min(3, this.trafficScale * ((this.map.width * this.map.height) / (24 * 24)) ** 0.5));
+    for (let i = 0; i < n; i++) this.scatter(this.spawn(ctx, true, false));
+  }
+
+  /** Puts a freshly spawned walker somewhere along their route (as if they had been walking a while). */
+  private scatter(c: Customer | null): void {
+    if (!c) return;
+    const steps = Math.floor(Math.random() * Math.max(1, c.path.length - 2));
+    c.pathIndex = Math.min(c.path.length - 1, 1 + steps);
+    const p = c.path[c.pathIndex - 1];
+    c.x = p.x + 0.5 + c.offX;
+    c.y = p.y + 0.5 + c.offY;
+    if (c.decideAt >= 0 && c.pathIndex > c.decideAt) c.decided = true;
+  }
+
+  /** Walkers expected on the streets at once for the current traffic (arrival rate × time to cross the map). */
+  private steadyCrowd(ctx: SimContext): number {
+    const perSecond = (this.demand(ctx).traffic * this.trafficScale) / SECONDS_PER_HOUR;
+    return Math.min(this.maxPedestrians * 0.8, (perSecond * exposureFor(this.locationId, BASE_VIEW_RADIUS).avgPath) / 1.3);
+  }
+
+  /**
+   * The stand just opened: people already walking the streets may notice it
+   * on the rest of their way, so trading starts with a busy street instead
+   * of waiting for new arrivals to walk in from the edge of the map.
+   */
+  beginTrading(ctx: SimContext): void {
+    // Top the street up to its usual crowd (e.g. when opening right after the night).
+    let missing = Math.round(this.steadyCrowd(ctx) - this.customers.filter((c) => c.state === 'walking').length);
+    while (missing-- > 0) this.scatter(this.spawn(ctx, false, false));
+    for (const c of this.customers) {
+      if (c.state !== 'walking' || c.decided || c.decideAt >= 0 || c.pathIndex >= c.path.length - 1) continue;
+      const rest = c.path.slice(c.pathIndex);
+      const exp = routeExposure(this.map, rest, ctx.mods.viewRadius);
+      if (!exp) continue;
+      c.decideAt = c.pathIndex + exp.decideAt;
+      c.proximity = exp.proximity;
     }
   }
 
@@ -132,11 +168,12 @@ export class World {
     const open = s.phase === 'open';
 
     // --- Spawning: Poisson-like arrivals at the traffic rate (ambient walkers outside trading hours).
-    const perSecond = (open ? d.traffic : this.def.traffic * 0.6) / SECONDS_PER_HOUR;
+    // Before opening the clock stands at 07:00, so the street already carries the opening-hour crowd.
+    const perSecond = (d.traffic * this.trafficScale) / SECONDS_PER_HOUR;
     this.spawnAcc += perSecond * dt * (1 + (Math.random() - 0.5) * 0.5);
     while (this.spawnAcc >= 1) {
       this.spawnAcc -= 1;
-      if (this.customers.length < MAX_PEDESTRIANS) this.spawn(ctx, !open, false);
+      if (this.customers.length < this.maxPedestrians) this.spawn(ctx, !open, false);
     }
 
     // --- Regulars come back on purpose, heading straight for the cart.
@@ -147,7 +184,7 @@ export class World {
       this.regularAcc += regPerSecond * dt;
       while (this.regularAcc >= 1) {
         this.regularAcc -= 1;
-        if (this.customers.length < MAX_PEDESTRIANS + 6) this.spawn(ctx, false, true);
+        if (this.customers.length < this.maxPedestrians + 6) this.spawn(ctx, false, true);
       }
     }
 

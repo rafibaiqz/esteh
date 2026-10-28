@@ -1,6 +1,5 @@
 import { BALANCE } from '../data/balance';
 import { FEATURES } from '../data/business';
-import { WEATHER } from '../data/weather';
 import { LOCATIONS, LOCATION_ORDER } from '../data/locations';
 import { RECIPE_LIMITS, SUPPLIES, recipeUsage } from '../data/supplies';
 import { CARTS, CART_ORDER } from '../data/carts';
@@ -14,7 +13,7 @@ import { activeIngredients, costPerCup, cupsByIngredient, cupsPossible, LOW_STOC
 import { BASE_SERVICE_TIME } from '../systems/Modifiers';
 import { checkRequirement } from '../systems/ProgressionSystem';
 import { COMPLAINT_TEXT, recipeInsight, TASTE_WEIGHTS } from '../systems/RecipeSystem';
-import { currentWeatherId, forecastText } from '../systems/WeatherSystem';
+import { forecastText, weatherNow } from '../systems/WeatherSystem';
 import { escapeHtml, num, pct, rp, rpShort } from '../util/format';
 import { icon, upgradeIcon, weatherIcon, type IconName } from './icons';
 import { cartPreview, previewSize } from '../render/cartModel';
@@ -61,7 +60,8 @@ function suggestion(game: Game): string {
   const plan = stockPlan(s, mods, est);
   const lvl = demandLevel(s, mods, est);
   const buys = plan.rows.filter((r) => r.buyQty > 0);
-  const head = `${weatherIcon(currentWeatherId(s), 26)}<div><b>Perkiraan ±${est.cups} gelas${est.partial ? ' lagi' : ''}</b><small>${WEATHER[currentWeatherId(s)].name} · permintaan ${lvl.label.toLowerCase()}</small></div>`;
+  const now = weatherNow(s);
+  const head = `${weatherIcon(now.id, 26)}<div><b>Perkiraan ±${est.cups} gelas${est.partial ? ' lagi' : ''}</b><small>${now.def.name} ${now.temperature}°C · permintaan ${lvl.label.toLowerCase()}</small></div>`;
   if (!buys.length) return `<div class="sugg ok"><div class="sugg-head">${head}</div><div class="sugg-line">${icon('check', 14)} Stok sudah cukup untuk perkiraan hari ini.</div></div>`;
   return `<div class="sugg">
     <div class="sugg-head">${head}</div>

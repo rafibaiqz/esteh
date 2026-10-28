@@ -20,7 +20,7 @@ import { eventDef, eventScopeText } from '../systems/EventSystem';
 import { demandLevel, estimateDay, stockPlan } from '../systems/ForecastSystem';
 import { activeIngredients, cupsByIngredient, cupsPossible, LOW_STOCK_CUPS } from '../systems/InventorySystem';
 import { getSettings, savedAt, storageAvailable } from '../systems/SaveSystem';
-import { currentTemperature, currentWeather, dayPart, forecastText, todayText } from '../systems/WeatherSystem';
+import { dayPart, forecastText, todayText, weatherNow, weatherNowLabel } from '../systems/WeatherSystem';
 import { WEEKDAYS, dayOfMonth, dayOfWeek, isWeekend, monthOf } from '../util/calendar';
 import { clock, escapeHtml, num, pct, rp, rpShort } from '../util/format';
 import { icon, weatherIcon, type IconName } from './icons';
@@ -63,10 +63,11 @@ export function hudHtml(game: Game, salesRate: number): string {
     s.phase === 'open' ? `Tutup pukul ${clock(close)} (sisa ${Math.floor(left / 60)} j ${Math.floor(left % 60)} m)` : s.phase === 'prep' ? 'Waktu berjalan setelah lapak dibuka.' : 'Lapak sudah tutup.'
   }`;
 
-  const w = currentWeather(s);
+  const now = weatherNow(s);
+  const w = now.def;
   const ev = eventDef(s);
   const news = ev.id !== 'biasa';
-  const wxTip = `<b>${w.name} · ${currentTemperature(s)}°C</b><br>${todayText(s)}<br>${w.effect}<br><br><b>Besok:</b> ${forecastText(s)}${
+  const wxTip = `<b>${weatherNowLabel(now)}</b> (sekarang)<br>${todayText(s)}<br>${w.effect}<br><br><b>Besok:</b> ${forecastText(s)}${
     news ? `<br><br><b>📰 ${escapeHtml(s.event.headline)}</b><br>${ev.desc}<br><i>${eventScopeText(s)}</i>` : ''
   }`;
 
@@ -81,7 +82,7 @@ export function hudHtml(game: Game, salesRate: number): string {
   return `<div class="pill cash" data-tip="Kas <b>${escapeHtml(s.businessName)}</b> (milik ${escapeHtml(s.ownerName)})">${icon('cash', 22)}<b class="${s.cash < 10_000 ? 'neg' : ''}">${rp(s.cash)}</b></div>
     <div class="pill stock">${stock}</div>
     <div class="pill time" data-tip="${timeTip}">${icon('clock', 18)}<div><b>${clock(s.timeMin)}</b><small>H${s.day} · ${phase}</small></div><i class="dayprog"><i style="width:${Math.max(0, Math.min(100, progress)).toFixed(1)}%"></i></i></div>
-    <div class="pill wx" data-tip="${escapeHtml(wxTip)}">${weatherIcon(w.id, 24)}<b>${currentTemperature(s)}°</b>${news ? `<span class="news-dot ${ev.good}" aria-label="Ada berita">📰</span>` : ''}</div>
+    <div class="pill wx" data-tip="${escapeHtml(wxTip)}">${weatherIcon(now.id, 24)}<b>${now.temperature}°</b>${news ? `<span class="news-dot ${ev.good}" aria-label="Ada berita">📰</span>` : ''}</div>
     <div class="pill sales" data-tip="${escapeHtml(salesTip)}" data-act="menu" data-id="stats">${icon('cups', 18)}<b>${num(l.cupsSold)}</b>${icon('happy', 16)}<b>${l.feedback.happy}</b>${icon('unhappy', 16)}<b class="${lost ? 'neg' : ''}">${l.feedback.unhappy + lost}</b></div>
     <div class="hud-gap"></div>
     <div class="pill ctrl">
@@ -127,9 +128,11 @@ export function prepPopup(game: Game, details: boolean): string {
   const can = game.canOpen();
   const est = estimateDay(s, mods);
   const lvl = demandLevel(s, mods, est);
-  const w = WEATHER[s.weather];
+  const now = weatherNow(s);
+  const w = now.def;
   const ev = eventDef(s);
-  const later = s.weatherLater !== s.weather ? `, sore ${WEATHER[s.weatherLater].name.toLowerCase()}` : '';
+  // The headline is the weather right now (same as the HUD); the peak and any afternoon change are labelled forecasts.
+  const outlook = now.later ? `Mulai 13:00 ${WEATHER[now.later].name.toLowerCase()} · puncak ±${now.peak}°C` : `Sepanjang hari · puncak ±${now.peak}°C`;
 
   let stockLine: string;
   if (possible === 0) stockLine = `<div class="pp-warn">${icon('empty', 18)}<span>Bahan habis.</span><button class="link" data-act="menu" data-id="supplies">Beli</button></div>`;
@@ -157,9 +160,10 @@ export function prepPopup(game: Game, details: boolean): string {
   }
 
   return `<div class="pp">
+    <button class="pp-min" data-act="prep-min" data-tip="Minimalkan panel" aria-label="Minimalkan panel"><i></i></button>
     <div class="pp-day">Hari ke-${s.day} · ${dateLabel(s.day)}</div>
     <div class="pp-loc">${LOCATIONS[s.locationId].name}</div>
-    <div class="pp-wx" data-tip="${escapeHtml(`${w.effect}<br><b>Saran:</b> ${w.advice}`)}">${weatherIcon(s.weather, 34)}<div><b>${w.name} · ${s.temperature}°C</b><small>${later ? `Pagi ${w.name.toLowerCase()}${later}` : 'Sepanjang hari'}</small></div></div>
+    <div class="pp-wx" data-tip="${escapeHtml(`${w.effect}<br><b>Saran:</b> ${w.advice}`)}">${weatherIcon(now.id, 34)}<div><b>${weatherNowLabel(now)}</b><small>${outlook}</small></div></div>
     <div class="pp-row" data-tip="Dibanding hari cerah berawan biasa di lokasi ini (cuaca, berita, akhir pekan, popularitas)."><span>Permintaan</span><b class="d${lvl.level}">${lvl.label}</b>${demandBars(lvl.level)}</div>
     ${stockLine}
     <div class="pp-row" data-tip="Sewa ${rp(costs.rent)} · gaji ${rp(costs.wages)} · perawatan ${rp(costs.maintenance)}"><span>Biaya buka</span><b>${costs.total ? rp(costs.total) : 'Gratis'}</b></div>
@@ -167,11 +171,28 @@ export function prepPopup(game: Game, details: boolean): string {
     ${can.ok ? '' : `<div class="pp-warn small">${can.msg}</div>`}
     <div class="pp-btns">
       <button class="btn" data-act="menu" data-id="location">Ganti Lokasi</button>
-      <button class="btn" data-act="skip-day" data-tip="Tidak berjualan: tanpa sewa & gaji, tapi es tetap mencair dan popularitas turun.">Libur</button>
+      <button class="btn" data-act="skip-day" data-tip="Tidak berjualan: tanpa sewa & gaji, tapi es tetap mencair dan popularitas turun.">Libur Hari Ini</button>
     </div>
     <button class="pp-toggle" data-act="prep-details" aria-expanded="${details}">${details ? 'Sembunyikan rincian ▴' : 'Rincian ▾'}</button>
     ${more}
   </div>`;
+}
+
+/** Minimized pre-opening card: one compact, clickable line that restores the full card. */
+export function prepMini(game: Game): string {
+  const s = game.state;
+  const est = estimateDay(s, game.mods);
+  const lvl = demandLevel(s, game.mods, est);
+  const possible = cupsPossible(s);
+  const now = weatherNow(s);
+  const stockTip = possible < est.cups ? `<br><b>Stok ±${num(possible)} gelas</b>, perkiraan laku ±${est.cups}` : '';
+  return `<button class="pp-mini" data-act="prep-restore" aria-label="Buka panel persiapan" data-tip="Lapak belum dibuka. Klik untuk membuka panel persiapan.${stockTip}">
+    ${icon('location', 16)}<b class="pm-loc">${LOCATIONS[s.locationId].name}</b>
+    <span class="pm-sep"></span>${weatherIcon(now.id, 20)}<span data-tip="${weatherNowLabel(now)}">${now.temperature}°C</span>
+    <span class="pm-sep"></span><span class="pm-dem">Permintaan <b class="d${lvl.level}">${lvl.label}</b></span>
+    ${possible < est.cups ? `<span class="pm-warn" aria-label="Stok kurang">!</span>` : ''}
+    <span class="pm-open">Buka Panel <i></i></span>
+  </button>`;
 }
 
 // ------------------------------------------------------------------ Cart popover (click the cart)

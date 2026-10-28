@@ -42,7 +42,7 @@ Peta mengisi seluruh layar; gerobak, penjual, dan pembeli adalah pusat perhatian
 - **HUD atas:** kas, stok teh/gula/es/gelas (klik untuk membeli; menyala oranye saat menipis, merah saat habis), jam dan hari dengan garis kemajuan hari, ikon cuaca dan suhu (arahkan kursor untuk prakiraan besok dan berita), ringkasan penjualan (gelas terjual · puas · kecewa/pergi), tombol jeda dan kecepatan, serta tombol menu.
 - **Kartu lokasi (kanan atas):** nama dan ciri lokasi, bar popularitas dan kepuasan, serta sewa. Kartu ini muncul setelah lapak dibuka.
 - **Bilah alat (kiri bawah):** Resep, Bahan, Lokasi, Gerobak, Alat, Staf, Promosi, Statistik. Hanya satu panel terbuka pada satu waktu dan selalu punya tombol tutup (✕ atau Esc). Saat panel terbuka, kamera bergeser supaya gerobak tetap terlihat.
-- **Kontrol peta (kanan bawah):** perkecil, perbesar, kembali ke gerobak, dan **Tutup Lapak** saat sedang berjualan.
+- **Kontrol peta (kanan bawah):** perkecil, perbesar, kembali ke gerobak (kamera meluncur halus ke gerobak), dan **Tutup Lapak** saat sedang berjualan. Kamera selalu dibuka dengan gerobak di tengah dan tidak bisa digeser terlalu jauh ke luar peta.
 - **Klik gerobak** untuk membuka kotak kecil: ubah harga, lihat resep dan stok, atau lompat ke Resep, Bahan, Gerobak, dan Alat.
 - **Umpan balik langsung:** penjual menyapa saat melayani ("Makasih!"), pembeli berkomentar singkat ("Segar banget!", "Manisnya pas!", "Kok mahal?", "Antreannya lama!"), kas memantul dengan angka +Rp, stok yang terpakai berkedip, dan pemberitahuan singkat muncul kalau pembeli batal karena harga atau antrean, bahan habis, atau cuaca berubah siang hari.
 
@@ -50,7 +50,7 @@ Peta mengisi seluruh layar; gerobak, penjual, dan pembeli adalah pusat perhatian
 
 Setiap hari punya tiga tahap.
 
-1. **Persiapan (07:00).** Waktu berhenti. Kartu persiapan di kanan menunjukkan lokasi, cuaca, tingkat permintaan (rendah/normal/tinggi/sangat tinggi), peringatan stok, dan biaya buka. Tombol **Rincian** menampilkan berita, perkiraan laba, dan saran belanja. Atur bahan, resep, harga, atau lokasi bila perlu, lalu tekan **BUKA LAPAK**. Sewa, gaji, dan biaya perawatan dibayar saat itu.
+1. **Persiapan (07:00).** Waktu berhenti. Kartu persiapan di kanan menunjukkan lokasi, cuaca saat ini (selalu sama dengan HUD, dan sama dengan yang dipakai hitungan permintaan) beserta perkiraan suhu puncak siang, tingkat permintaan (rendah/normal/tinggi/sangat tinggi), peringatan stok, dan biaya buka. Tombol **Rincian** menampilkan berita, perkiraan laba, dan saran belanja. Tombol **—** di pojok kanan atas kartu meminimalkan kartu menjadi satu baris kecil (lokasi · suhu · permintaan · tanda **!** kalau stok kurang) supaya peta bisa dilihat dengan leluasa; klik **Buka Panel** untuk menampilkannya lagi. Kartu langsung hilang dan muncul kembali di tempat yang sama, tanpa animasi geser, dan peta tidak ikut bergeser. Meminimalkan tidak membuka lapak, tidak memotong uang, dan tidak mengubah apa pun; isi kartu selalu dihitung ulang dari keadaan terbaru (misalnya setelah pindah lokasi). Atur bahan, resep, harga, atau lokasi bila perlu, lalu tekan **BUKA LAPAK**. Sewa, gaji, dan biaya perawatan dibayar saat itu, satu kali.
 2. **Berjualan.** Pejalan kaki lewat di trotoar. Yang melihat gerobakmu akan menimbang harga, panjang antrean, dan stok, lalu mungkin ikut antre dan membeli. Setelah minum, mereka bereaksi singkat ("Segar banget!", "Kurang manis."). Arahkan kursor ke seseorang untuk melihat selera dan batas harganya.
 3. **Tutup (19:00, atau 21:00 dengan Lampu Malam).** Laporan harian muncul. Es yang tersisa akan mencair semalaman.
 
@@ -64,7 +64,8 @@ Kalau cuaca buruk atau sedang tidak menguntungkan, kamu bisa memilih **Libur**: 
 | Esc | Tutup panel; kalau tidak ada panel, buka/tutup menu jeda |
 | 1 / 2 / 3 | Kecepatan 1× / 2× / 4× |
 | + / − atau roda mouse | Zoom |
-| Seret peta | Geser kamera |
+| Seret peta / tombol panah | Geser kamera |
+| C | Kembali ke gerobak |
 | Klik gerobak | Atur harga cepat |
 | R, B, L, G, U, F, P, S | Buka panel Resep, Bahan, Lokasi, Gerobak, Alat, Staf, Promosi, Statistik |
 | M | Menu jeda |
@@ -183,12 +184,20 @@ Ada 11 lokasi, urut dari yang paling awal terbuka:
 | Pantai Wisata | Rp 55.000 | Rp 1.000.000 | Sangat laris saat terik, kosong saat hujan, ramai akhir pekan |
 | Kawasan Premium | Rp 180.000 | Rp 1.200.000 | Daya beli sangat tinggi, tapi hanya untung kalau resepnya istimewa |
 
-Setiap lokasi punya peta sendiri, bukan peta yang sama diberi warna lain:
-- **Kampus:** gedung fakultas mengelilingi taman tengah.
-- **Terminal:** bus parkir di antara peron.
-- **Alun-Alun:** dua beringin besar, pendopo joglo, dan deretan lapak kuliner.
-- **Perkantoran:** menara kantor, food court, dan pelataran parkir.
-- **Pantai:** garis pantai diagonal dengan jalan papan, bukit pasir berpohon kelapa, dan menara penjaga pantai.
+Setiap lokasi adalah dunia 36×36 petak (dulu 24×24). Lingkungan asli di sekitar gerobak tetap di tengah, dan di sekelilingnya ada jalan, trotoar, bangunan, dan landmark baru yang khas untuk lokasi itu:
+- **Perumahan Asri:** gang yang mengelilingi kompleks, lebih banyak rumah, musala, lapangan voli RW, dan pos ronda.
+- **Kawasan Sekolah:** Jl. Pendidikan dengan deretan kios pelajar, jalan samping, SMA dengan lapangan basket, dan perumahan guru.
+- **Kampus:** gedung fakultas mengelilingi taman tengah, ditambah Fakultas Hukum & Kedokteran, masjid kampus, asrama, GOR dengan lapangan, dan deretan fotokopi/warnet/laundry.
+- **Taman Kota:** deretan kafe & toko yang menghadap taman, masjid, danau dengan jalur lari, panggung, dan taman bunga.
+- **Terminal:** bus parkir di antara peron, pool & bengkel bus, pangkalan angkot dan agen travel, musala, serta deretan warung makan dan pangkalan ojek.
+- **Pusat Kota:** blok-blok baru dengan menara, apartemen, rumah sakit, balai kota, bioskop, stasiun, swalayan, dan taman kecil berair mancur.
+- **Alun-Alun:** dua beringin besar, pendopo joglo, lapak kuliner; kini dikelilingi jalan di keempat sisinya, dengan Masjid Agung, Kantor Bupati, bank, dan pertokoan.
+- **Perkantoran:** menara kantor, food court, dan parkiran, ditambah jalan raya kedua, gedung parkir, masjid, co-working, hotel bisnis, gedung bursa, dan taman korporat.
+- **Pasar Tradisional:** gudang dan grosir, pasar ikan, lebih banyak lapak, halte angkot, dan deretan ruko.
+- **Pantai:** garis pantai diagonal dengan jalan papan sepanjang peta, resor & hotel di tepi jalan pantai, kampung nelayan, dan dermaga kayu ke tengah laut.
+- **Kawasan Premium:** menara hunian, klinik, rumah sakit, galeri, showroom, dan promenade butik.
+
+Pejalan kaki datang dan pergi dari banyak pintu masuk di semua sisi peta serta dari pintu-pintu bangunan, dan memilih rute yang berbeda-beda. Karena peta lebih luas, sebagian orang berjalan jauh dari gerobak; jumlah pejalan kaki disesuaikan otomatis supaya jumlah orang yang **melihat** gerobakmu tetap sama seperti keseimbangan ekonomi lokasi itu. Jadi permintaan, sewa, pengaruh cuaca, dan jenis pelanggan tiap lokasi tidak berubah. Saat lapak dibuka, orang yang sedang lewat langsung bisa mampir, sehingga perkiraan penjualan dan hasil nyata lebih dekat.
 
 Lokasi baru terbuka dengan uang ditambah syarat kemajuan, misalnya jumlah gelas terjual, kepuasan pelanggan, atau jumlah lokasi yang sudah dibuka.
 
@@ -283,6 +292,7 @@ src/
     weather.ts            10 jenis cuaca dan parameternya
     events.ts             berita harian dan efek mekaniknya
     locations.ts          profil ekonomi tiap lokasi
+    mapKit.ts             ukuran peta bersama (36×36) dan pembantu tata letak (rumah, bangunan, jalan setapak)
     maps.ts, mapsMore.ts  tata letak 11 peta
     customers.ts          jenis pelanggan (selera, kepekaan harga/antre, kecenderungan tip)
     carts.ts              SATU definisi tiap gerobak: statistik + tampilan (CartLook)
@@ -291,6 +301,7 @@ src/
   systems/
     EconomySystem.ts      model permintaan, harga wajar, kepuasan, tip, laba
     ForecastSystem.ts     perkiraan penjualan, tingkat permintaan, opsi harga, rencana stok
+    ExposureSystem.ts     berapa banyak pejalan kaki melihat gerobak; menjaga arus pembeli tetap sama di peta besar
     CustomerSystem.ts     simulasi pejalan kaki, antrean, penjualan, reaksi, pelanggan tetap
     WeatherSystem.ts      cuaca harian, prakiraan, kurva suhu
     EventSystem.ts        pemilihan berita dan penerapan efeknya

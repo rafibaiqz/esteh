@@ -81,8 +81,41 @@ export function temperatureAt(s: GameState, timeMin: number, weatherId: WeatherI
   return base + curve;
 }
 
+/**
+ * The weather right now — the single source every screen shows and the
+ * demand model uses (same weather id, same temperature curve, same time).
+ * Forecast values (today's peak, the afternoon change, tomorrow) are separate
+ * fields and must always be labelled as such when displayed.
+ */
+export interface WeatherNow {
+  id: WeatherId;
+  def: WeatherDef;
+  /** Temperature at the current game time (°C), as used by demand. */
+  temperature: number;
+  /** Forecast peak for this weather today (12:00–15:00). */
+  peak: number;
+  /** Afternoon weather (from 13:00) when it differs from the weather now. */
+  later: WeatherId | null;
+}
+
+export function weatherNow(s: GameState): WeatherNow {
+  const id = currentWeatherId(s);
+  return {
+    id,
+    def: WEATHER[id],
+    temperature: temperatureAt(s, s.timeMin, id),
+    peak: temperatureAt(s, SHIFT_HOUR * 60, id),
+    later: s.weatherLater !== id ? s.weatherLater : null,
+  };
+}
+
+/** "Cerah Berawan · 26°C" — the one way current weather is written. */
+export function weatherNowLabel(now: WeatherNow): string {
+  return `${now.def.name} · ${now.temperature}°C`;
+}
+
 export function currentTemperature(s: GameState): number {
-  return temperatureAt(s, s.timeMin, currentWeatherId(s));
+  return weatherNow(s).temperature;
 }
 
 /** Thirst multiplier from temperature alone (1.0 at 29 °C). */

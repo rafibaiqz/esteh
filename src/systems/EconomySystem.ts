@@ -123,6 +123,8 @@ export interface DemandBreakdown {
   /** Pedestrians per game hour. */
   traffic: number;
   base: number;
+  /** Weather and temperature this demand was computed for. */
+  weatherId: WeatherId;
   temperature: number;
   thirst: number;
   popularity: number;
@@ -188,6 +190,7 @@ export function demand(s: GameState, mods: Modifiers, opts: DemandOpts = {}): De
   return {
     traffic,
     base: loc.baseDemand,
+    weatherId: wId,
     temperature,
     thirst,
     popularity,

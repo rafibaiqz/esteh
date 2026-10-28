@@ -26,7 +26,14 @@ import { demandLevel, estimateDay, stockPlan } from '../src/systems/ForecastSyst
 import { buySupply, packPrice } from '../src/systems/InventorySystem';
 import { getModifiers } from '../src/systems/Modifiers';
 import { tasteScore } from '../src/systems/RecipeSystem';
-import { advanceWeather } from '../src/systems/WeatherSystem';
+import { advanceWeather, weatherNow, weatherNowLabel } from '../src/systems/WeatherSystem';
+import { hudHtml, prepMini, prepPopup } from '../src/ui/panels';
+import { BASE_VIEW_RADIUS, exposureFor, trafficScale } from '../src/systems/ExposureSystem';
+import { buildMap } from '../src/data/maps';
+import { MAP_SIZE } from '../src/data/mapKit';
+import { LOCATIONS } from '../src/data/locations';
+import { Pathfinder } from '../src/world/Pathfinding';
+import type { LocationId } from '../src/game/types';
 
 const NO_BONUS = { tasteBonus: 0, coldBonus: 0 };
 const NO_SHIFT = { ice: 0, sugar: 0 };
@@ -310,4 +317,106 @@ test('names: owner name is required and validated', async () => {
   assert.equal(validateNames('Budi Santoso', ''), null);
   assert.equal(validateNames("Siti Nur'aini", 'Es Teh Bu Siti & Co.'), null);
   assert.ok(validateNames('Budi', 'x'.repeat(40)));
+});
+
+test('maps: every neighbourhood is a larger, connected world with clean geometry', () => {
+  const ids = Object.keys(LOCATIONS) as LocationId[];
+  for (const id of ids) {
+    const m = buildMap(id);
+    const where = `${id}`;
+    assert.equal(m.width, MAP_SIZE, `${where}: width`);
+    assert.equal(m.height, MAP_SIZE, `${where}: height`);
+    const pf = new Pathfinder(m);
+    const serve = { x: m.cart.serveX, y: m.cart.serveY };
+    assert.ok(m.walkable(serve.x, serve.y), `${where}: serve tile walkable`);
+    // Queue room: the first slots behind the serve tile stay on walkable ground.
+    for (let i = 1; i <= 3; i++) {
+      const qx = Math.floor(serve.x + 0.5 + m.cart.qdx * i * 0.55);
+      const qy = Math.floor(serve.y + 0.5 + m.cart.qdy * i * 0.55);
+      assert.ok(m.walkable(qx, qy), `${where}: queue slot ${i} at ${qx},${qy}`);
+    }
+    // Entry points on several edges, and every spawn/door/POI can reach the cart.
+    const edges = new Set(m.spawns.map((p) => (p.y === 0 ? 'N' : p.y === m.height - 1 ? 'S' : p.x === 0 ? 'W' : p.x === m.width - 1 ? 'E' : 'door')));
+    assert.ok(['N', 'S', 'W', 'E'].filter((e) => edges.has(e)).length >= 3, `${where}: entries on ≥3 edges (${[...edges].join(',')})`);
+    for (const p of [...m.spawns, ...m.pois]) {
+      assert.ok(m.walkable(p.x, p.y), `${where}: point ${p.x},${p.y} is walkable`);
+      assert.ok(pf.find(p, serve), `${where}: ${p.x},${p.y} can reach the cart`);
+    }
+    // Structures: inside the map, never overlapping each other or roads/sidewalks/crossings.
+    const owner = new Int16Array(m.width * m.height).fill(-1);
+    m.structures.forEach((s, si) => {
+      assert.ok(s.x >= 0 && s.y >= 0 && s.x + s.w <= m.width && s.y + s.h <= m.height, `${where}: ${s.kind} ${s.sign ?? ''} in bounds`);
+      for (let y = s.y; y < s.y + s.h; y++)
+        for (let x = s.x; x < s.x + s.w; x++) {
+          const i = y * m.width + x;
+          assert.equal(owner[i], -1, `${where}: ${s.kind} ${s.sign ?? ''} overlaps another structure at ${x},${y}`);
+          owner[i] = si;
+          const t = m.tile(x, y)!.type;
+          assert.ok(t !== 'road' && t !== 'cross' && t !== 'walk', `${where}: ${s.kind} ${s.sign ?? ''} sits on ${t} at ${x},${y}`);
+        }
+    });
+    assert.equal(owner[m.cart.y * m.width + m.cart.x], -1, `${where}: cart tile is free`);
+    // Props never stand on a road or inside a building.
+    for (const p of m.props) {
+      const tx = Math.floor(p.x);
+      const ty = Math.floor(p.y);
+      const t = m.tile(tx, ty);
+      assert.ok(t, `${where}: ${p.kind} at ${p.x},${p.y} in bounds`);
+      if (p.kind !== 'car' && p.kind !== 'bus') assert.ok(t!.type !== 'road' && t!.type !== 'cross', `${where}: ${p.kind} on the road at ${p.x},${p.y}`);
+      assert.equal(owner[ty * m.width + tx], -1, `${where}: ${p.kind} inside a building at ${p.x},${p.y}`);
+    }
+    // No tiny road fragments: every road tile has a road neighbour.
+    for (let y = 0; y < m.height; y++)
+      for (let x = 0; x < m.width; x++) {
+        const t = m.tile(x, y)!.type;
+        if (t !== 'road' && t !== 'cross') continue;
+        const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => ['road', 'cross'].includes(m.tile(x + dx, y + dy)?.type ?? '')).length;
+        assert.ok(n >= 1, `${where}: isolated road tile at ${x},${y}`);
+      }
+  }
+});
+
+test('maps: larger worlds keep each location’s customer flow', () => {
+  for (const id of Object.keys(LOCATIONS) as LocationId[]) {
+    const scale = trafficScale(id);
+    const e = exposureFor(id, BASE_VIEW_RADIUS);
+    // Arrivals × share who see the cart × proximity stays at the level the location was balanced for.
+    const noticed = e.share * e.prox * scale;
+    assert.ok(scale > 0.5 && scale < 4.5, `${id}: traffic scale ${scale.toFixed(2)}`);
+    assert.ok(noticed > 0.35 && noticed < 0.9, `${id}: noticed ${noticed.toFixed(2)}`);
+  }
+});
+
+test('weather: HUD, pre-opening card, minimized bar and demand all use the current weather', () => {
+  const s = createNewGame(4242);
+  s.weather = 'cerahBerawan';
+  s.weatherLater = 'hujan';
+  s.temperature = 30;
+  const game = new Game(s);
+  const hudTemp = () => Number(/class="pill wx"[^>]*>.*?<b>(-?\d+)°<\/b>/s.exec(hudHtml(game, 0))![1]);
+  const cardLine = () => /class="pp-wx"[^>]*>.*?<b>([^<]+)<\/b>/s.exec(prepPopup(game, false))![1];
+  const barTemp = () => Number(/(-?\d+)°C<\/span>/.exec(prepMini(game))![1]);
+
+  // Before opening (07:00): cool morning, not the day's peak.
+  let now = weatherNow(game.state);
+  assert.equal(now.id, 'cerahBerawan');
+  assert.equal(now.temperature, 26, 'morning temperature follows the daily curve');
+  assert.equal(hudTemp(), now.temperature);
+  assert.equal(cardLine(), weatherNowLabel(now));
+  assert.equal(cardLine(), 'Cerah Berawan · 26°C');
+  assert.equal(barTemp(), now.temperature);
+  assert.ok(prepPopup(game, false).includes('puncak ±30°C'), 'the peak is shown only as a labelled forecast');
+  let d = demand(game.state, game.mods);
+  assert.equal(d.weatherId, now.id);
+  assert.equal(d.temperature, now.temperature);
+
+  // Trading in the afternoon: the weather has changed; HUD and demand follow it together.
+  game.openDay();
+  game.state.timeMin = 14 * 60;
+  now = weatherNow(game.state);
+  assert.equal(now.id, 'hujan');
+  assert.equal(hudTemp(), now.temperature);
+  d = demand(game.state, game.mods);
+  assert.equal(d.weatherId, 'hujan');
+  assert.equal(d.temperature, now.temperature);
 });

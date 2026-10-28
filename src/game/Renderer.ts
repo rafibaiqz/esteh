@@ -91,11 +91,15 @@ export class Renderer {
   }
 
   /** Re-centres on the cart (after a location change). */
-  focusCart(world: World): void {
+  focusCart(world: World, smooth = false): void {
     const c = world.map.cart;
     this.camera.setBounds(groundBounds(world.map));
-    this.camera.centerOnTile(c.x + 0.5, c.y + 0.5);
-    this.camera.clamp();
+    this.camera.setMapSize(world.map.width, world.map.height);
+    if (smooth) this.camera.glideToTile(c.x + 0.5, c.y + 0.5);
+    else {
+      this.camera.centerOnTile(c.x + 0.5, c.y + 0.5);
+      this.camera.clamp();
+    }
   }
 
   private ensureGround(map: GameMap): void {
@@ -103,6 +107,7 @@ export class Renderer {
       this.ground = renderGround(map);
       this.groundMap = map;
       this.camera.setBounds(groundBounds(map));
+      this.camera.setMapSize(map.width, map.height);
     }
   }
 
@@ -136,6 +141,7 @@ export class Renderer {
     ctx.fillStyle = world.map.background;
     ctx.fillRect(0, 0, w, h);
     const dt = Math.min(0.05, time - (this.lastT || time));
+    this.camera.update(dt);
     this.inset += (this.insetTarget - this.inset) * Math.min(1, dt * 9);
     if (Math.abs(this.insetTarget - this.inset) < 0.5) this.inset = this.insetTarget;
     if (this.seller) {
@@ -151,7 +157,7 @@ export class Renderer {
     ctx.drawImage(this.ground!, gb.left, 0);
     this.waterShimmer(ctx, world.map, time);
 
-    const items = this.collect(game, ctx, time);
+    const items = this.collect(game, ctx, time, w, h);
     for (const d of sortDrawables(items)) d.draw();
 
     // Overlays: bubbles and floating money above everything.
@@ -181,7 +187,7 @@ export class Renderer {
       out.fillStyle = `rgba(235,240,255,${0.55 * this.flash})`;
       out.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-    if (s.paused) {
+    if (s.paused && s.phase === 'open') {
       out.fillStyle = 'rgba(10,30,10,0.25)';
       out.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
@@ -199,10 +205,16 @@ export class Renderer {
       }
   }
 
-  private collect(game: Game, ctx: Ctx, time: number): Drawable[] {
+  private collect(game: Game, ctx: Ctx, time: number, viewW: number, viewH: number): Drawable[] {
     const world = game.world;
     const s = game.state;
     const items: Drawable[] = [];
+    // Visible area in iso pixels (plus a margin): objects outside it are neither sorted nor drawn.
+    const M = 48;
+    const vl = -this.offset.x - M;
+    const vr = viewW - this.offset.x + M;
+    const vt = -this.offset.y - M;
+    const vb = viewH - this.offset.y + M;
     const add = (x0: number, y0: number, x1: number, y1: number, height: number, halfW: number | null, draw: () => void) => {
       let l: number, r: number, t: number, b: number;
       if (halfW === null) {
@@ -217,6 +229,7 @@ export class Renderer {
         t = sy - height;
         b = sy + 4;
       }
+      if (r < vl || l > vr || b < vt || t > vb) return;
       items.push({ x0, y0, x1, y1, l, r, t, b, draw });
     };
 

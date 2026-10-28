@@ -5,11 +5,17 @@ import type { TileType } from './Tile';
  * Small authoring API for neighbourhood layouts: roads automatically get
  * sidewalks, crossings are generated where sidewalks meet roads, and lanes are
  * registered for edge-to-edge roads so traffic can drive through.
+ *
+ * `at(ox, oy)` shifts every later coordinate, so a block can be authored in
+ * its own local grid and placed anywhere in a larger world. Roads whose start
+ * or end is omitted always run to the edge of the whole map.
  */
 export class MapBuilder {
   readonly map: GameMap;
   private readonly hRoads: { y: number; x0: number; x1: number }[] = [];
   private readonly vRoads: { x: number; y0: number; y1: number }[] = [];
+  private ox = 0;
+  private oy = 0;
 
   constructor(width: number, height: number, fill: TileType = 'grass') {
     this.map = new GameMap(width, height, fill);
@@ -22,12 +28,28 @@ export class MapBuilder {
     return this.map.height;
   }
 
-  set(x: number, y: number, type: TileType, road?: 'h' | 'v' | 'x'): this {
+  /** Sets the origin for all following coordinates (in tiles). */
+  at(ox: number, oy: number): this {
+    this.ox = ox;
+    this.oy = oy;
+    return this;
+  }
+
+  /** Tile at local coordinates (respects `at`). */
+  tileAt(x: number, y: number) {
+    return this.map.tile(x + this.ox, y + this.oy);
+  }
+
+  private setAbs(x: number, y: number, type: TileType, road?: 'h' | 'v' | 'x'): void {
     const t = this.map.tile(x, y);
     if (t) {
       t.type = type;
       t.road = road;
     }
+  }
+
+  set(x: number, y: number, type: TileType, road?: 'h' | 'v' | 'x'): this {
+    this.setAbs(x + this.ox, y + this.oy, type, road);
     return this;
   }
 
@@ -40,7 +62,7 @@ export class MapBuilder {
   paintOver(x: number, y: number, w: number, h: number, type: TileType, onlyOn: TileType[]): this {
     for (let j = y; j < y + h; j++)
       for (let i = x; i < x + w; i++) {
-        const t = this.map.tile(i, j);
+        const t = this.tileAt(i, j);
         if (t && onlyOn.includes(t.type)) this.set(i, j, type);
       }
     return this;
@@ -50,16 +72,22 @@ export class MapBuilder {
     const t = this.map.tile(x, y);
     if (!t) return;
     const isRoad = t.type === 'road' || t.type === 'cross';
-    this.set(x, y, 'road', isRoad && t.road !== dir ? 'x' : dir);
+    this.setAbs(x, y, 'road', isRoad && t.road !== dir ? 'x' : dir);
   }
 
   private walk(x: number, y: number): void {
     const t = this.map.tile(x, y);
-    if (t && t.type !== 'road' && t.type !== 'cross') this.set(x, y, 'walk');
+    if (t && t.type !== 'road' && t.type !== 'cross') this.setAbs(x, y, 'walk');
   }
 
-  /** Two-lane road along x on rows y and y+1, with sidewalks on rows y-1 and y+2. */
-  hRoad(y: number, x0 = 0, x1 = this.w - 1, sidewalks: { top?: boolean; bottom?: boolean } = {}): this {
+  /**
+   * Two-lane road along x on rows y and y+1, with sidewalks on rows y-1 and y+2.
+   * Omitted ends run to the map edge.
+   */
+  hRoad(yLocal: number, x0Local?: number, x1Local?: number, sidewalks: { top?: boolean; bottom?: boolean } = {}): this {
+    const y = yLocal + this.oy;
+    const x0 = x0Local === undefined ? 0 : x0Local + this.ox;
+    const x1 = x1Local === undefined ? this.w - 1 : x1Local + this.ox;
     this.hRoads.push({ y, x0, x1 });
     for (let x = x0; x <= x1; x++) {
       this.road(x, y, 'h');
@@ -76,8 +104,11 @@ export class MapBuilder {
     return this;
   }
 
-  /** Two-lane road along y on columns x and x+1, with sidewalks on columns x-1 and x+2. */
-  vRoad(x: number, y0 = 0, y1 = this.h - 1, sidewalks: { left?: boolean; right?: boolean } = {}): this {
+  /** Two-lane road along y on columns x and x+1, with sidewalks on columns x-1 and x+2. Omitted ends run to the map edge. */
+  vRoad(xLocal: number, y0Local?: number, y1Local?: number, sidewalks: { left?: boolean; right?: boolean } = {}): this {
+    const x = xLocal + this.ox;
+    const y0 = y0Local === undefined ? 0 : y0Local + this.oy;
+    const y1 = y1Local === undefined ? this.h - 1 : y1Local + this.oy;
     this.vRoads.push({ x, y0, y1 });
     for (let y = y0; y <= y1; y++) {
       this.road(x, y, 'v');
@@ -98,7 +129,7 @@ export class MapBuilder {
   zebra(x: number, y: number, w: number, h: number, run: 'h' | 'v'): this {
     for (let j = y; j < y + h; j++)
       for (let i = x; i < x + w; i++) {
-        const t = this.map.tile(i, j);
+        const t = this.tileAt(i, j);
         if (t && (t.type === 'road' || t.type === 'cross')) this.set(i, j, 'cross', run);
       }
     return this;
@@ -121,11 +152,17 @@ export class MapBuilder {
         const meets = v.x + 1 >= h.x0 && v.x <= h.x1 && h.y + 1 >= v.y0 - 1 && h.y <= v.y1 + 1;
         if (!meets) continue;
         for (const row of [h.y - 1, h.y + 2])
-          if (isRoad(v.x, row) && isRoad(v.x + 1, row) && isWalk(v.x - 1, row) && isWalk(v.x + 2, row)) this.zebra(v.x, row, 2, 1, 'h');
+          if (isRoad(v.x, row) && isRoad(v.x + 1, row) && isWalk(v.x - 1, row) && isWalk(v.x + 2, row)) this.zebraAbs(v.x, row, 2, 1, 'h');
         for (const col of [v.x - 1, v.x + 2])
-          if (isRoad(col, h.y) && isRoad(col, h.y + 1) && isWalk(col, h.y - 1) && isWalk(col, h.y + 2)) this.zebra(col, h.y, 1, 2, 'v');
+          if (isRoad(col, h.y) && isRoad(col, h.y + 1) && isWalk(col, h.y - 1) && isWalk(col, h.y + 2)) this.zebraAbs(col, h.y, 1, 2, 'v');
       }
     return this;
+  }
+
+  private zebraAbs(x: number, y: number, w: number, h: number, run: 'h' | 'v'): void {
+    const ox = this.ox;
+    const oy = this.oy;
+    this.at(0, 0).zebra(x, y, w, h, run).at(ox, oy);
   }
 
   structure(s: Partial<Structure> & Pick<Structure, 'kind' | 'x' | 'y' | 'w' | 'h'>): this {
@@ -136,6 +173,8 @@ export class MapBuilder {
       roofStyle: 'gable',
       face: 'left',
       ...s,
+      x: s.x + this.ox,
+      y: s.y + this.oy,
     });
     return this;
   }
@@ -145,7 +184,7 @@ export class MapBuilder {
   }
 
   prop(kind: PropKind, x: number, y: number, color?: string): this {
-    this.map.props.push({ kind, x, y, color });
+    this.map.props.push({ kind, x: x + this.ox, y: y + this.oy, color });
     return this;
   }
 
@@ -156,18 +195,18 @@ export class MapBuilder {
 
   /** Adds a pedestrian spawn/exit point (e.g. a doorway). */
   door(x: number, y: number): this {
-    this.map.spawns.push({ x, y });
+    this.map.spawns.push({ x: x + this.ox, y: y + this.oy });
     return this;
   }
 
   /** Adds points of interest pedestrians may route through. */
   poi(...points: [number, number][]): this {
-    for (const [x, y] of points) this.map.pois.push({ x, y });
+    for (const [x, y] of points) this.map.pois.push({ x: x + this.ox, y: y + this.oy });
     return this;
   }
 
   cart(spot: CartSpot): this {
-    this.map.cart = spot;
+    this.map.cart = { ...spot, x: spot.x + this.ox, y: spot.y + this.oy, serveX: spot.serveX + this.ox, serveY: spot.serveY + this.oy };
     return this;
   }
 

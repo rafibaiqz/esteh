@@ -2,7 +2,7 @@ import { HAIR, SKIN_TONES, type Accessory, type CustomerTypeDef } from '../data/
 import type { Complaint } from '../game/types';
 import type { TastePrefs } from '../systems/RecipeSystem';
 import type { Point } from '../world/Map';
-import { pick, rand } from '../util/rng';
+import { mulberry32, pick, rand } from '../util/rng';
 
 export type CustomerState = 'walking' | 'toQueue' | 'queued' | 'served' | 'leaving';
 export type BubbleKind = 'happy' | 'neutral' | 'unhappy' | 'price' | 'wait' | 'empty' | 'crowded' | 'thirsty';
@@ -78,16 +78,7 @@ export class Customer {
     this.y = start.y + 0.5 + this.offY;
     this.exit = exit;
     this.speed = rand(type.speed[0], type.speed[1]);
-    this.look = {
-      skin: pick(SKIN_TONES),
-      hair: type.id === 'lansia' ? pick(['#d8d8d8', '#bdbdbd', '#9e9e9e']) : pick(HAIR),
-      shirt: pick(type.shirts),
-      pants: pick(type.pants),
-      accessory: pick(type.accessories),
-      child: type.child,
-      scale: 1,
-      hairStyle: pick(['short', 'short', 'long', 'bun'] as const),
-    };
+    this.look = pick(lookPool(type));
   }
 
   get tileX(): number {
@@ -158,4 +149,33 @@ export class Customer {
       if (this.reaction.t <= 0) this.reaction = null;
     }
   }
+}
+
+/**
+ * A fixed wardrobe of appearances per customer type. Busy neighbourhoods show
+ * a lot of people at once; drawing them from a bounded set keeps the sprite
+ * cache small (and the crowd still varied: types × looks).
+ */
+const LOOKS_PER_TYPE = 14;
+const lookPools = new Map<string, Customer['look'][]>();
+
+function lookPool(type: CustomerTypeDef): Customer['look'][] {
+  const hit = lookPools.get(type.id);
+  if (hit) return hit;
+  let seed = 7;
+  for (const ch of type.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const rng = mulberry32(seed);
+  const one = <T>(arr: readonly T[]): T => arr[Math.floor(rng() * arr.length)];
+  const pool = Array.from({ length: LOOKS_PER_TYPE }, () => ({
+    skin: one(SKIN_TONES),
+    hair: type.id === 'lansia' ? one(['#d8d8d8', '#bdbdbd', '#9e9e9e']) : one(HAIR),
+    shirt: one(type.shirts),
+    pants: one(type.pants),
+    accessory: one(type.accessories) as Accessory,
+    child: type.child,
+    scale: 1,
+    hairStyle: one(['short', 'short', 'long', 'bun'] as const),
+  }));
+  lookPools.set(type.id, pool);
+  return pool;
 }

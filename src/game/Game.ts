@@ -230,6 +230,7 @@ export class Game {
     this.lowWarned = false;
     this.emptyWarned = false;
     this.toast(`Lapak dibuka di ${LOCATIONS[s.locationId].name}! ${costs.total ? `Biaya harian ${rp(costs.total)} dibayar.` : ''}`, 'good');
+    this.world.beginTrading(this.ctx);
     this.events.emit('dayStarted', { day: s.day });
     this.refresh();
     this.save();
@@ -296,6 +297,7 @@ export class Game {
     if (s.phase !== 'report') return;
     s.day++;
     s.phase = 'prep';
+    s.paused = false;
     s.timeMin = OPEN_HOUR * 60;
     advanceWeather(s);
     s.event = rollEvent(s);

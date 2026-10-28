@@ -1,55 +1,14 @@
 import { BALANCE } from '../data/balance';
 import { CUSTOMER_TYPES } from '../data/customers';
 import { LOCATIONS, OPEN_HOUR, SECONDS_PER_HOUR } from '../data/locations';
-import { buildMap } from '../data/maps';
 import { SUPPLIES, recipeUsage } from '../data/supplies';
 import { WEATHER } from '../data/weather';
 import type { GameState, Ingredient, LocationId, WeatherId } from '../game/types';
-import { mulberry32 } from '../util/rng';
-import { Pathfinder } from '../world/Pathfinding';
-import { pickRoute, routeExposure } from '../world/Routes';
 import { dailyFixedCosts, demand, satisfactionFor, tipChance, type DemandBreakdown } from './EconomySystem';
 import { eventBudgetFor, eventCrowdWeight } from './EventSystem';
+import { exposureFor, trafficScale } from './ExposureSystem';
 import { activeIngredients, costPerCup, cupsPossible, packPrice } from './InventorySystem';
 import { adEffect, type Modifiers } from './Modifiers';
-
-// ------------------------------------------------------------------ exposure
-
-interface ExposureStats {
-  /** Share of pedestrians whose route brings the cart into view. */
-  share: number;
-  /** Average proximity factor among them. */
-  prox: number;
-}
-
-const exposureCache = new Map<string, ExposureStats>();
-
-/** How many passers-by see the cart, measured by sampling the same routes the simulation uses. */
-export function exposureFor(locationId: LocationId, viewRadius: number): ExposureStats {
-  const key = `${locationId}:${viewRadius}`;
-  const hit = exposureCache.get(key);
-  if (hit) return hit;
-  const map = buildMap(locationId);
-  const pf = new Pathfinder(map);
-  const rng = mulberry32(0x51ed + viewRadius * 977 + locationId.length * 131);
-  let seen = 0;
-  let prox = 0;
-  const N = 500;
-  let n = 0;
-  for (let i = 0; i < N; i++) {
-    const r = pickRoute(map, pf, rng);
-    if (!r) continue;
-    n++;
-    const e = routeExposure(map, r.path, viewRadius);
-    if (e) {
-      seen++;
-      prox += e.proximity;
-    }
-  }
-  const res = { share: n ? seen / n : 0, prox: seen ? prox / seen : 0 };
-  exposureCache.set(key, res);
-  return res;
-}
 
 // ------------------------------------------------------------------ helpers
 
@@ -145,6 +104,7 @@ export function estimateDay(s: GameState, mods: Modifiers, opts: EstimateOpts = 
   const loc = LOCATIONS[locationId];
   const prog = s.locations[locationId];
   const exp = exposureFor(locationId, mods.viewRadius);
+  const scale = trafficScale(locationId);
   const meanHour = loc.hourCurve.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
   const capacityPerHour = (SECONDS_PER_HOUR / mods.serviceTime) * BALANCE.service.efficiency;
 
@@ -170,7 +130,7 @@ export function estimateDay(s: GameState, mods: Modifiers, opts: EstimateOpts = 
     // Profile averages are computed on the first hour; hours already past contribute nothing.
     const share = h < startHour ? 0 : h === startHour ? 1 - (fromTime % 60) / 60 : 1;
     if (!first) first = d;
-    const peds = d.traffic;
+    const peds = d.traffic * scale;
     const exposed = peds * exp.share;
     let buyers = 0;
     let rejects = 0;
