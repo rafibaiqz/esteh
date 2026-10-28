@@ -37,6 +37,31 @@ function safeArea(): { top: number; right: number; bottom: number; left: number 
 }
 
 /**
+ * Whole stage pixels (crisp canvas, exact hit-testing) at one uniform scale that never
+ * exceeds the available area. Rounding the fitted size alone can overshoot by a fraction of
+ * a pixel (1281 × 1.0667 = 1366.4 px on a 1366×768 screen), which made the page scroll, or
+ * fall almost a pixel short. Of the whole sizes near the fit, take the one that leaves the
+ * thinnest sliver: one edge exact, the other rounded down so it cannot overshoot.
+ */
+function stageSize(availW: number, availH: number, fit: number): { w: number; h: number; scale: number } {
+  const w0 = Math.round(availW / fit);
+  const h0 = Math.round(availH / fit);
+  let best = { w: w0, h: h0, scale: Math.min(availW / w0, availH / h0), gap: Infinity };
+  for (const d of [0, -1, 1, -2, 2, -3, 3, -4, 4]) {
+    const sw = availW / (w0 + d);
+    const hw = Math.floor(availH / sw + 1e-9);
+    const sh = availH / (h0 + d);
+    const wh = Math.floor(availW / sh + 1e-9);
+    for (const c of [
+      { w: w0 + d, h: hw, scale: sw, gap: availH - hw * sw },
+      { w: wh, h: h0 + d, scale: sh, gap: availW - wh * sh },
+    ])
+      if (c.gap < best.gap - 0.01) best = c;
+  }
+  return best;
+}
+
+/**
  * Fits the stage to the screen without letterboxing or clipping. The stage
  * takes the screen's own shape: a 16:9 desktop gets exactly 1280×720 (so the
  * desktop layout is unchanged), a portrait phone gets a tall, narrow stage and
@@ -52,15 +77,13 @@ function fitStage(): number {
   const safe = safeArea();
   const availW = Math.max(200, vw - safe.left - safe.right);
   const availH = Math.max(200, vh - safe.top - safe.bottom);
-  const scale = Math.max(Math.min(availW / DESIGN_W, availH / DESIGN_H), Math.min(MIN_SCALE, availW / 360, availH / 360));
-  const w = Math.round(availW / scale);
-  const h = Math.round(availH / scale);
+  const fit = Math.max(Math.min(availW / DESIGN_W, availH / DESIGN_H), Math.min(MIN_SCALE, availW / 360, availH / 360));
+  const { w, h, scale } = stageSize(availW, availH, fit);
   stage.style.width = `${w}px`;
   stage.style.height = `${h}px`;
   stage.style.transform = `scale(${scale})`;
   stage.style.left = `${safe.left}px`;
   stage.style.top = `${safe.top}px`;
-  stage.style.setProperty('--inv', String(1 / scale));
   stage.style.setProperty('--stage-h', `${h}px`);
   stage.classList.toggle('st-narrow', w < NARROW_BELOW);
   stage.classList.toggle('st-short', h < SHORT_BELOW);

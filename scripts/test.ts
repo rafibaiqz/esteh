@@ -460,9 +460,11 @@ test('pause: the whole simulation stands still and resumes without a jump', () =
     assert.equal(snap(), before, `${phase}: nothing changes while paused`);
     assert.equal(events, 0, `${phase}: no sales or warnings while paused`);
     game.setPaused(false);
-    const people = game.world.customers.map((c) => [c.x, c.y]);
+    // Matched by identity: a customer who leaves in this frame shifts everyone after them in the list.
+    const people = game.world.customers.map((c) => ({ c, x: c.x, y: c.y }));
     game.update(1 / 60);
-    const step = Math.max(0, ...game.world.customers.slice(0, people.length).map((c, i) => Math.hypot(c.x - people[i][0], c.y - people[i][1])));
+    const stayed = people.filter((p) => game.world.customers.includes(p.c));
+    const step = Math.max(0, ...stayed.map((p) => Math.hypot(p.c.x - p.x, p.c.y - p.y)));
     assert.ok(step < 0.2, `${phase}: first step after resuming is small (${step.toFixed(3)} tiles)`);
     for (let i = 0; i < 120; i++) game.update(1 / 60);
     assert.notEqual(snap(), before, `${phase}: the world moves again after resuming`);

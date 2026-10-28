@@ -1490,34 +1490,20 @@ details.more .tbl {
   border-radius: 8px;
 }
 .title-foot {
+  /* Version and save note, bottom-left (the stage already sits inside the safe area). */
   position: absolute;
   left: 16px;
-  right: 16px;
   bottom: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  font-size: 11px;
+  max-width: calc(100% - 32px);
+  font-size: 12px;
   font-weight: 700;
   color: var(--ivory);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
-.title-foot .byline {
-  font: 700 14px var(--font-head);
-  letter-spacing: 0.6px;
-  color: var(--cream);
-}
-.title-foot .version {
-  text-align: right;
-  /* Hosting badges (e.g. Netlify's, ~40 px tall in the bottom-right of the browser window)
-     must not cover it: lift it by that much in screen px, whatever the stage scale. */
-  margin-bottom: calc(52px * var(--inv));
-}
 .title-foot .save-note {
   color: var(--cream);
-  font-size: 11px;
+  font-size: inherit;
 }
 
 /* ------------------------------------------------------------ audio settings */
@@ -1695,8 +1681,8 @@ details.more .tbl {
   min-height: 48px;
   justify-content: center;
 }
-.st-narrow .title-foot .save-note {
-  display: none;
+.st-narrow .title-foot {
+  font-size: 13px;
 }
 .st-narrow .audio-hint {
   bottom: 40px;

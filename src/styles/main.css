@@ -50,14 +50,15 @@ button:disabled {
   display: none !important;
 }
 #viewport {
-  position: relative;
-  overflow: auto;
+  /* Exactly the window (sized by fitStage()): the game is one fixed surface and never scrolls. */
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
 }
 #stage {
   /* Size is set by fitStage() to the screen's shape (1280×720 on a 16:9 screen). */
   --hud-h: 50px; /* bottom edge of the HUD (measured at runtime) */
   --bar-h: 74px; /* space taken by the toolbar at the bottom (measured at runtime) */
-  --inv: 1; /* stage px per screen px (1 / scale) */
   --stage-h: 720px; /* stage height (set by fitStage) */
   position: absolute;
   width: 1280px;
