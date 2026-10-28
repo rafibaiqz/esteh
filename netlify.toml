@@ -1,0 +1,13 @@
+# ESTEH is a Vite project: Netlify must build it and publish the build output.
+# Without this, the repository root was published as-is, so the browser got the
+# raw `src/main.ts` (served as text/vnd.trolltech.linguist) and refused to run it.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Same major version the build is tested with locally (Vite 5 needs Node 18+).
+  NODE_VERSION = "22"
+
+# No SPA fallback is needed: the game is a single page without client-side routes,
+# and a catch-all rewrite would turn missing assets into HTML responses.

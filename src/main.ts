@@ -147,4 +147,11 @@ function boot(): void {
   (window as unknown as { esteh: unknown }).esteh = { game, renderer, title, ui, audio };
 }
 
-boot();
+try {
+  boot();
+} catch (err) {
+  // Shown by the startup guard in index.html instead of a blank page.
+  console.error('[esteh] gagal memulai:', err);
+  const show = (window as unknown as { __estehBootError?: (detail: string) => void }).__estehBootError;
+  show?.(err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : String(err));
+}

@@ -23,6 +23,12 @@ Perintah lain:
 | `npm run sim -- 14` | Simulasi 14 hari tanpa tampilan untuk cek keseimbangan dan pembukuan |
 | `npm run sim -- 8 premium 7` | Simulasi 8 hari di lokasi tertentu dengan *seed* tertentu |
 
+## Deploy ke Netlify
+
+Pengaturan ada di `netlify.toml`: Netlify menjalankan `npm run build` (Node 22) dan menerbitkan folder **`dist`**. Jangan menerbitkan folder akar proyek: `index.html` di akar memuat `src/main.ts` mentah yang tidak bisa dijalankan browser, sehingga halaman tampil putih kosong. Game tidak memakai routing sisi klien, jadi tidak perlu aturan *redirect/SPA fallback*.
+
+Cek sebelum deploy: `npm ci && npm run build && npm run preview`, lalu buka alamat yang ditampilkan. Kalau game gagal dimulai (skrip tidak termuat atau error saat start), halaman menampilkan kotak "ESTEH gagal dimuat" beserta pesan error-nya, bukan layar kosong.
+
 ## Menu utama
 
 Game dibuka di layar judul: logo di tengah atas dan menu vertikal yang ringkas. Latarnya adalah peta yang hidup (sedikit buram dan perlahan bergeser) supaya menu tetap jadi fokus. Nomor versi ada di pojok kiri bawah dan "A game by Rafi Aziz" di pojok kanan bawah.

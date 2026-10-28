@@ -27,6 +27,40 @@
       </div>
     </div>
     <noscript>ESTEH membutuhkan JavaScript.</noscript>
+    <script>
+      // Startup guard: if the game script can't be loaded or crashes while starting,
+      // show what happened instead of leaving a blank page. Removed from view once
+      // the game is running (main.ts sets window.esteh).
+      (function () {
+        function show(detail) {
+          if (window.esteh || document.getElementById('boot-error')) return;
+          var box = document.createElement('div');
+          box.id = 'boot-error';
+          box.setAttribute('role', 'alert');
+          box.style.cssText =
+            'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#f5e6c8;font:15px/1.5 "Trebuchet MS",Verdana,sans-serif;color:#38271d;z-index:9999';
+          var card = document.createElement('div');
+          card.style.cssText = 'max-width:520px;padding:20px 24px;background:#fff8e9;border:2px solid #c98a32;border-radius:12px';
+          card.innerHTML = '<b style="color:#6b4226;font-size:18px">ESTEH gagal dimuat</b><p style="margin:8px 0">Coba muat ulang halaman. Kalau masih terjadi, kirimkan pesan di bawah ini ke pembuat game.</p>';
+          var pre = document.createElement('pre');
+          pre.style.cssText = 'white-space:pre-wrap;font-size:12px;background:#fbf0da;padding:8px;border-radius:6px;margin:0';
+          pre.textContent = String(detail);
+          card.appendChild(pre);
+          box.appendChild(card);
+          document.body.appendChild(box);
+        }
+        window.__estehBootError = show;
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (t && t.tagName === 'SCRIPT') show('Skrip permainan tidak bisa dimuat: ' + (t.src || '(tanpa alamat)'));
+        }, true);
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            if (!window.esteh) show('Skrip permainan tidak berjalan (tidak ada pesan galat dari browser).');
+          }, 5000);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
