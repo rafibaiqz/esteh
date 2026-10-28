@@ -9,6 +9,8 @@ import { getSettings, loadSlot } from './systems/SaveSystem';
 import { TitleScreen } from './ui/TitleScreen';
 import { UI } from './ui/UI';
 import { toast } from './ui/dom';
+import { AudioManager } from './audio/AudioManager';
+import { bindAudio } from './audio/gameSounds';
 
 const STAGE_W = 1280;
 const STAGE_H = 720;
@@ -44,13 +46,18 @@ function boot(): void {
   const renderer = new Renderer(document.getElementById('world') as HTMLCanvasElement);
   const titleRenderer = new Renderer(document.getElementById('title-canvas') as HTMLCanvasElement);
   titleRenderer.camera.zoomIndex = 1;
+  titleRenderer.pauseTint = false;
   const ui = new UI(game, renderer);
+  const audio = new AudioManager();
+  bindAudio(audio, game);
+  ui.onPauseMenu = (open) => audio.setPauseMenu(open);
   renderer.camera.zoomIndex = getSettings().zoom;
   titleRenderer.focusCart(game.world);
   game.events.on('locationChanged', () => titleRenderer.focusCart(game.world));
 
+  /** New game or loaded save: straight into gameplay, running (pausing is always the player's choice). */
   const enterGame = (state: GameState, message: string) => {
-    if (state.phase === 'open') state.paused = true;
+    state.paused = false;
     game.loadState(state, true);
     renderer.camera.zoomIndex = getSettings().zoom;
     renderer.focusCart(game.world);
@@ -72,25 +79,23 @@ function boot(): void {
         title.show('load');
         return;
       }
-      enterGame(r.state, `${r.state.businessName} dimuat — hari ke-${r.state.day}.${r.state.phase === 'open' ? ' Permainan dijeda, tekan Spasi untuk lanjut.' : ''}`);
+      enterGame(r.state, `${r.state.businessName} dimuat — hari ke-${r.state.day}.`);
     },
     inGame: () => game.persistent,
     resume: () => {
+      // Same session, same world: just leave the title screen and keep playing.
       title.hide();
-      // A running day stays paused until the player chooses "Lanjutkan".
-      if (game.state.phase === 'open') ui.showPause();
+      ui.enterGameplay();
     },
     settingsChanged: () => {
       renderer.camera.zoomIndex = getSettings().zoom;
       renderer.focusCart(game.world);
+      audio.applySettings();
     },
   });
 
   ui.onMainMenu = (screen = 'main') => {
-    if (game.persistent) {
-      if (game.state.phase === 'open') game.state.paused = true;
-      game.save();
-    }
+    if (game.persistent) game.save();
     titleRenderer.focusCart(game.world);
     title.show(screen);
   };
@@ -98,6 +103,7 @@ function boot(): void {
   ui.onSettingsChanged = () => {
     renderer.camera.zoomIndex = getSettings().zoom;
     renderer.focusCart(game.world);
+    audio.applySettings();
   };
 
   // The title background slowly drifts around the demo stand.
@@ -108,7 +114,9 @@ function boot(): void {
   };
   const loop = new GameLoop(
     (dt) => {
-      game.update(dt);
+      // A player's game is suspended while the title screen covers it (navigation, not the
+      // gameplay pause): nothing is simulated until they come back. The demo street keeps moving.
+      if (!title.visible || !game.persistent) game.update(dt);
       if (!title.visible) ui.update(dt);
     },
     (t) => {
@@ -127,7 +135,7 @@ function boot(): void {
   });
 
   // Exposed for debugging / automated checks in the browser console.
-  (window as unknown as { esteh: unknown }).esteh = { game, renderer, title, ui };
+  (window as unknown as { esteh: unknown }).esteh = { game, renderer, title, ui, audio };
 }
 
 boot();

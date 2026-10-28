@@ -54,6 +54,14 @@ export class Renderer {
   private inset = 0;
   private insetTarget = 0;
   private seller: { text: string; tone: 'good' | 'ok' | 'bad'; t: number } | null = null;
+  /**
+   * Clock for world animations (water, swaying trees, cart lights, the seller's
+   * idle moves, wind). It stands still while the game is paused, so a paused
+   * world is truly frozen; only the camera and the UI keep moving.
+   */
+  private worldT = 0;
+  /** Dim the world while paused (off for the title-screen background). */
+  pauseTint = true;
 
   constructor(readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -142,10 +150,12 @@ export class Renderer {
     ctx.fillRect(0, 0, w, h);
     const dt = Math.min(0.05, time - (this.lastT || time));
     this.camera.update(dt);
+    const worldDt = s.paused ? 0 : dt;
+    this.worldT += worldDt;
     this.inset += (this.insetTarget - this.inset) * Math.min(1, dt * 9);
     if (Math.abs(this.insetTarget - this.inset) < 0.5) this.inset = this.insetTarget;
     if (this.seller) {
-      this.seller.t -= dt;
+      this.seller.t -= worldDt;
       if (this.seller.t <= 0) this.seller = null;
     }
     const ox = Math.round(w / 2 + this.inset / this.camera.zoom - this.camera.cx);
@@ -155,9 +165,9 @@ export class Renderer {
 
     const gb = groundBounds(world.map);
     ctx.drawImage(this.ground!, gb.left, 0);
-    this.waterShimmer(ctx, world.map, time);
+    this.waterShimmer(ctx, world.map, this.worldT);
 
-    const items = this.collect(game, ctx, time, w, h);
+    const items = this.collect(game, ctx, this.worldT, w, h);
     for (const d of sortDrawables(items)) d.draw();
 
     // Overlays: bubbles and floating money above everything.
@@ -187,7 +197,7 @@ export class Renderer {
       out.fillStyle = `rgba(235,240,255,${0.55 * this.flash})`;
       out.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-    if (s.paused && s.phase === 'open') {
+    if (s.paused && this.pauseTint) {
       out.fillStyle = 'rgba(10,30,10,0.25)';
       out.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
@@ -348,7 +358,7 @@ export class Renderer {
       const n = Math.round(weather.wind * 14);
       for (let i = 0; i < n; i++) {
         const sp = 60 + ((i * 37) % 50);
-        const x = ((time * sp * (s.paused ? 0 : 1) + i * 97) % (w + 80)) - 40;
+        const x = ((this.worldT * sp + i * 97) % (w + 80)) - 40;
         const y = (i * 53) % h;
         ctx.moveTo(x, y);
         ctx.lineTo(x + 14 + (i % 3) * 6, y + 1);

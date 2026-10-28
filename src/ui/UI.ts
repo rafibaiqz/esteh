@@ -72,6 +72,8 @@ export class UI {
   onSettingsChanged: () => void = () => {};
   /** True while another screen (the title screen) covers the game: shortcuts are ignored. */
   isBlocked: () => boolean = () => false;
+  /** Set by main.ts: the pause menu opened/closed (used for music ducking). */
+  onPauseMenu: (open: boolean) => void = () => {};
 
   constructor(
     private readonly game: Game,
@@ -278,18 +280,29 @@ export class UI {
 
   // ------------------------------------------------------------------ pause menu
 
+  /** Opens the pause menu and freezes the whole simulation (in every phase, not only while trading). */
   showPause(): void {
-    const s = this.game.state;
     this.pauseOpen = true;
     this.cartPop = false;
-    if (s.phase === 'open' && !s.paused) this.game.togglePause();
+    this.game.setPaused(true);
+    this.onPauseMenu(true);
     this.refresh(true);
   }
 
+  /** Closes the pause menu; only this (or a speed button) starts the simulation again. */
   private resume(): void {
-    const s = this.game.state;
+    this.enterGameplay();
+  }
+
+  /**
+   * The single way into running gameplay (Resume, or continuing from the title
+   * screen): no pause menu, no stale popovers, simulation running.
+   */
+  enterGameplay(): void {
     this.pauseOpen = false;
-    if (s.phase === 'open' && s.paused) this.game.togglePause();
+    this.cartPop = false;
+    this.game.setPaused(false);
+    this.onPauseMenu(false);
     this.refresh(true);
   }
 
@@ -329,6 +342,7 @@ export class UI {
     this.sales = [];
     this.cartPop = false;
     this.pauseOpen = false;
+    this.onPauseMenu(false);
     this.prepDetails = false;
     this.prepView = 'expanded';
     this.statsTab = 'today';
@@ -383,7 +397,7 @@ export class UI {
       if (this.pauseOpen) return;
       if (k === ' ') {
         e.preventDefault();
-        if (this.game.state.phase === 'open') this.game.togglePause();
+        if (this.game.state.phase !== 'report') this.game.togglePause();
       } else if (k === '1' || k === '2' || k === '3') this.game.setSpeed(k === '3' ? 4 : Number(k));
       else if (k.startsWith('Arrow')) {
         e.preventDefault();
@@ -621,9 +635,10 @@ export class UI {
           await modal('Cara Bermain', howtoHtml(g), [{ label: 'Tutup', value: 'ok', kind: 'primary' }]);
           break;
         case 'main-menu':
-          this.pauseOpen = false;
+          // Leave the pause behind: the title screen suspends the session by itself, and
+          // continuing later goes straight back into running gameplay.
           this.menu = null;
-          this.cartPop = false;
+          this.enterGameplay();
           this.onMainMenu('main');
           break;
         case 'open-settings':

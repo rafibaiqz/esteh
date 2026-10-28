@@ -67,12 +67,13 @@ export class Game {
     this.events.emit('toast', { text, kind });
   }
 
-  private result(r: ActionResult, goodKind: 'good' | 'unlock' = 'good'): ActionResult {
+  private result(r: ActionResult, goodKind: 'good' | 'unlock' = 'good', spend?: 'supplies' | 'equipment' | 'unlock'): ActionResult {
     this.toast(r.msg, r.ok ? goodKind : 'bad');
     if (r.ok) {
+      if (spend) this.events.emit('purchase', { kind: spend });
       this.afterProgress();
       this.save();
-    }
+    } else this.events.emit('actionFailed', { msg: r.msg });
     this.changed();
     return r;
   }
@@ -81,6 +82,7 @@ export class Game {
 
   update(dtReal: number): void {
     const s = this.state;
+    // Real time is clamped so a long gap (background tab, slow frame) never jumps the world forward.
     const dt = s.paused ? 0 : Math.min(dtReal, 0.1) * s.speed;
     if (dt > 0) {
       this.world.update(this.ctx, dt);
@@ -110,12 +112,14 @@ export class Game {
         this.emptyWarned = true;
         const id = limitingIngredient(this.state);
         this.toast(`${id ? SUPPLIES[id].name : 'Bahan'} habis! Beli di menu Bahan.`, 'bad');
+        this.events.emit('stockWarning', { empty: true });
       }
     } else this.emptyWarned = false;
     if (low.length && possible > 0) {
       if (!this.lowWarned) {
         this.lowWarned = true;
         this.toast(`${low.map((i) => SUPPLIES[i].name).join(', ')} menipis — sisa ${possible} gelas.`, 'warn');
+        this.events.emit('stockWarning', { empty: false });
       }
     } else if (!low.length) this.lowWarned = false;
   }
@@ -178,9 +182,19 @@ export class Game {
     this.changed();
   }
 
-  togglePause(): void {
-    this.state.paused = !this.state.paused;
+  /**
+   * The one switch that freezes the simulation. While paused, `update` does not
+   * advance the world at all: no walking, spawning, queueing, serving, sales,
+   * clock, weather change or warnings. Rendering and the UI keep running.
+   */
+  setPaused(paused: boolean): void {
+    if (this.state.paused === paused) return;
+    this.state.paused = paused;
     this.changed();
+  }
+
+  togglePause(): void {
+    this.setPaused(!this.state.paused);
   }
 
   // ------------------------------------------------------------------ day cycle
@@ -323,7 +337,7 @@ export class Game {
   buySupply(id: Ingredient, pack: number): ActionResult {
     const r = buySupply(this.state, id, pack, this.mods);
     if (r.ok) this.emptyWarned = false;
-    return this.result(r);
+    return this.result(r, 'good', 'supplies');
   }
 
   /** Buys several packs in one go (used by the stock recommendation, after the player confirms). */
@@ -345,7 +359,7 @@ export class Game {
     return this.result({
       ok: bought > 0,
       msg: bought ? `Membeli ${bought} paket bahan seharga ${rp(spent)}.${failed ? ` Sebagian gagal: ${failed}` : ''}` : failed || 'Tidak ada yang perlu dibeli.',
-    });
+    }, 'good', 'supplies');
   }
 
   setRecipe(recipe: Recipe): void {
@@ -373,7 +387,7 @@ export class Game {
     s.cash -= f.price;
     s.today.capex += f.price;
     s.features.push(id);
-    return this.result({ ok: true, msg: `${f.name} terbuka! Beli Irisan Lemon di menu Bahan.` }, 'unlock');
+    return this.result({ ok: true, msg: `${f.name} terbuka! Beli Irisan Lemon di menu Bahan.` }, 'unlock', 'unlock');
   }
 
   // ------------------------------------------------------------------ locations
@@ -388,7 +402,7 @@ export class Game {
     s.today.capex += def.unlockCost;
     s.unlockedLocations.push(id);
     s.today.unlocks.push(`Izin lokasi: ${def.name}`);
-    return this.result({ ok: true, msg: `Izin berjualan di ${def.name} didapat!` }, 'unlock');
+    return this.result({ ok: true, msg: `Izin berjualan di ${def.name} didapat!` }, 'unlock', 'unlock');
   }
 
   moveTo(id: LocationId): ActionResult {
@@ -422,7 +436,7 @@ export class Game {
     s.upgrades.push(id);
     this.refresh();
     this.events.emit('cartChanged', undefined);
-    return this.result({ ok: true, msg: `${def.name} terpasang!` });
+    return this.result({ ok: true, msg: `${def.name} terpasang!` }, 'good', 'equipment');
   }
 
   buyCart(id: CartId): ActionResult {
@@ -435,7 +449,7 @@ export class Game {
     s.today.capex += def.price;
     s.ownedCarts.push(id);
     if (s.phase === 'prep') this.useCart(id, true);
-    return this.result({ ok: true, msg: s.phase === 'prep' ? `${def.name} dibeli dan langsung dipakai!` : `${def.name} dibeli! Pakai saat persiapan hari berikutnya.` });
+    return this.result({ ok: true, msg: s.phase === 'prep' ? `${def.name} dibeli dan langsung dipakai!` : `${def.name} dibeli! Pakai saat persiapan hari berikutnya.` }, 'good', 'equipment');
   }
 
   useCart(id: CartId, silent = false): ActionResult {
@@ -466,7 +480,7 @@ export class Game {
     s.today.hiring += def.hireCost;
     s.staff.push(role);
     this.refresh();
-    return this.result({ ok: true, msg: `${def.name} direkrut! Gaji ${rp(def.wage)}/hari dibayar saat lapak buka.` });
+    return this.result({ ok: true, msg: `${def.name} direkrut! Gaji ${rp(def.wage)}/hari dibayar saat lapak buka.` }, 'good', 'equipment');
   }
 
   fire(role: StaffRole): ActionResult {
@@ -493,7 +507,7 @@ export class Game {
     const prog = s.locations[s.locationId];
     prog.popularity = clamp(prog.popularity + def.popularityPerDay, 0, 100);
     this.refresh();
-    return this.result({ ok: true, msg: `${def.name} berjalan ${def.days} hari di ${LOCATIONS[s.locationId].name}.` });
+    return this.result({ ok: true, msg: `${def.name} berjalan ${def.days} hari di ${LOCATIONS[s.locationId].name}.` }, 'good', 'equipment');
   }
 
   // ------------------------------------------------------------------ progression
@@ -502,7 +516,9 @@ export class Game {
     const s = this.state;
     const goals = checkGoals(s);
     for (const g of goals) this.toast(`🏆 Target tercapai: ${g.name}${g.reward ? ` (+${rp(g.reward)})` : ''}`, 'unlock');
-    if (s.phase !== 'report') for (const msg of announceNewUnlocks(s)) this.toast(msg, 'unlock');
+    const unlocks = s.phase !== 'report' ? announceNewUnlocks(s) : [];
+    for (const msg of unlocks) this.toast(msg, 'unlock');
+    if (goals.length || unlocks.length) this.events.emit('unlocked', undefined);
   }
 
   /** Called periodically by the UI so sales-driven unlocks are announced promptly. */

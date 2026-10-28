@@ -115,7 +115,7 @@ export function controlsHtml(game: Game): string {
     <button class="ctl-btn" data-act="zoom" data-d="-1" data-tip="Perkecil (−)" aria-label="Perkecil">−</button>
     <button class="ctl-btn" data-act="zoom" data-d="1" data-tip="Perbesar (+)" aria-label="Perbesar">+</button>
     <button class="ctl-btn" data-act="focus" data-tip="Kembali ke gerobak" aria-label="Pusatkan">⌖</button>
-    ${s.paused && s.phase === 'open' ? '<div class="paused-tag">DIJEDA</div>' : ''}`;
+    ${s.paused ? '<div class="paused-tag">DIJEDA</div>' : ''}`;
 }
 
 // ------------------------------------------------------------------ Pre-opening popup

@@ -30,10 +30,12 @@ Game dibuka di layar judul: logo di tengah atas dan menu vertikal yang ringkas. 
 - **Lanjutkan:** membuka permainan yang terakhir dimainkan.
 - **Main Baru:** isi **Nama Pemilik** (wajib, 2–24 karakter) dan **Nama Usaha** (boleh kosong, otomatis "ESTEH"), lalu pilih penampilan penjual di gerobak. Setelah pesan sambutan, tekan **Mulai Bisnis**.
 - **Muat Permainan:** daftar semua simpanan dengan nama usaha, pemilik, hari, lokasi, kas, dan waktu simpan. Simpanan bisa dimuat atau dihapus. Menghapus selalu minta konfirmasi.
-- **Pengaturan:** balon reaksi pelanggan, efek cuaca (penuh/ringan/mati), zoom awal, kecepatan awal, dan tips pemula.
+- **Pengaturan:** balon reaksi pelanggan, efek cuaca (penuh/ringan/mati), zoom awal, kecepatan awal, tips pemula, dan **suara** (lihat bagian Suara).
 - **Kredit.**
 
-Saat bermain, tombol **☰** atau **Esc** membuka **menu jeda**: Lanjutkan, Simpan Permainan, Pengaturan, Cara Bermain, dan Kembali ke Menu Utama. Kembali ke menu utama selalu menyimpan progres dulu, dan **Kembali ke Permainan** dari layar judul membuka lagi menu jeda. Karena game berjalan di browser, tidak ada tombol "Keluar".
+Saat bermain, tombol **☰** atau **Esc** membuka **menu jeda**: Lanjutkan, Simpan Permainan, Pengaturan, Cara Bermain, dan Kembali ke Menu Utama. Kembali ke menu utama selalu menyimpan progres dulu dan menutup menu jeda; selama layar judul terbuka permainan ditahan. **Lanjutkan Permainan** di layar judul langsung kembali ke permainan yang sama dan berjalan lagi (tanpa menu jeda, tanpa biaya buka lagi). Memuat simpanan juga langsung masuk ke permainan yang berjalan; menu jeda hanya muncul kalau kamu menekan jeda. Karena game berjalan di browser, tidak ada tombol "Keluar".
+
+**Jeda benar-benar menghentikan permainan**, di tahap apa pun (persiapan maupun berjualan) dan di kecepatan berapa pun. Pejalan kaki, kendaraan, antrean, penjual, penjualan, kas, stok, jam, perubahan cuaca, peringatan, dan animasi dunia (air, pohon, lampu gerobak) semuanya diam sampai kamu menekan **Lanjutkan**. Peta tetap terlihat di belakang menu jeda, dan menyimpan atau mengubah pengaturan tidak melanjutkan permainan. Selama layar judul terbuka, permainan yang sedang berjalan juga ditahan (tanpa mengubah status jeda). Setelah dilanjutkan, semua bergerak lagi dari posisi semula tanpa melompat.
 
 ## Layar permainan
 
@@ -60,7 +62,7 @@ Kalau cuaca buruk atau sedang tidak menguntungkan, kamu bisa memilih **Libur**: 
 
 | Tombol | Fungsi |
 | --- | --- |
-| Spasi | Jeda cepat / lanjut (tanpa menu) |
+| Spasi | Jeda cepat / lanjut tanpa menu (persiapan atau berjualan) |
 | Esc | Tutup panel; kalau tidak ada panel, buka/tutup menu jeda |
 | 1 / 2 / 3 | Kecepatan 1× / 2× / 4× |
 | + / − atau roda mouse | Zoom |
@@ -246,6 +248,17 @@ Rumus yang dipakai:
 
 Rincian keuangan tidak ditampilkan di layar permainan, hanya di laporan dan panel **Statistik**. Tab **Hari Ini** berisi angka keuangan hari berjalan, kepuasan, popularitas, alasan pembeli pergi, dan komentar pelanggan terbaru. Tab lainnya: Ringkasan, Riwayat Hari (30 hari), **Analisis** (laba per hari menurut lokasi, harga, resep, dan cuaca), dan Target.
 
+## Suara
+
+Semua suara dibuat khusus untuk ESTEH (disintesis dengan skrip, bukan rekaman atau musik orang lain) dan ikut dibundel di `public/audio/`, jadi tidak ada yang diunduh dari server lain.
+
+- **Musik latar "Teh Sore":** lagu instrumental santai 84 BPM (piano elektrik, marimba, petikan gitar, bas lembut, dan brush) sepanjang 24 bar yang berulang tanpa jeda. Musik mulai setelah klik atau tombol pertama (aturan browser), tidak pernah diputar ulang dari awal saat membuka menu, dan tidak pernah terputar dobel. Saat menu jeda terbuka, musik bisa tetap normal, dipelankan (bawaan), atau dimatikan.
+- **Efek suara:** klik lembut untuk tombol (satu klik = satu bunyi; tombol nonaktif tidak berbunyi), bunyi kasir "cha-ching" setiap kali penjualan benar-benar selesai (bahan terpakai dan uang tercatat), bunyi beli bahan, bunyi koin untuk membeli alat/gerobak/staf/promosi, bunyi gagal saat uang kurang atau aksi tidak diizinkan, denting saat ada yang terbuka atau target tercapai, bel pintu saat lapak dibuka, nada penutup saat hari selesai, dan bunyi pendek saat stok menipis atau habis.
+- **Pengaturan → Suara:** semua suara (bisu/aktif), musik aktif/mati, volume musik, efek aktif/mati, volume efek, dan musik saat jeda. Perubahan langsung terdengar dan disimpan di browser untuk semua simpanan permainan. Volume bawaan: musik 25%, efek 70%.
+- Kalau browser tidak mendukung audio atau berkas gagal dimuat, permainan tetap berjalan tanpa suara.
+
+Untuk membuat ulang berkas suara: `python3 scripts/audio/generate_audio.py` (butuh numpy, scipy, dan `lame`).
+
 ## Simpanan
 
 - **Slot bernama:** setiap usaha punya slot sendiri dengan ID unik (`esteh.slot.<id>` di LocalStorage). ID tidak pernah diambil dari nama, jadi dua usaha dengan nama sama tetap terpisah. Menyimpan game yang sama selalu menimpa slotnya sendiri, tidak membuat duplikat, dan tidak menyentuh simpanan lain.
@@ -319,9 +332,14 @@ src/
     menusBusiness.ts      panel Resep (meja racik), Bahan, Lokasi, Alat, Gerobak
     menusManage.ts        panel Staf, Promosi, Statistik
     dom.ts, widgets.ts, icons.ts   morph DOM, tooltip, dialog, ikon piksel
+  audio/
+    AudioManager.ts       satu-satunya pemutar suara (Web Audio): musik berulang, efek, volume, bisu
+    audioConfig.ts        daftar berkas suara dan kerasnya masing-masing
+    gameSounds.ts         menghubungkan klik tombol dan kejadian permainan ke suara
 scripts/
   test.ts                 unit test (node:test, tanpa dependensi tambahan)
   simulate.ts             simulasi banyak hari + pengecekan pembukuan
+  audio/generate_audio.py pembuat musik & efek suara (hasilnya di public/audio)
 ```
 
 ### Prinsip

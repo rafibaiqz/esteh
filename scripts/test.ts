@@ -420,3 +420,48 @@ test('weather: HUD, pre-opening card, minimized bar and demand all use the curre
   assert.equal(d.weatherId, 'hujan');
   assert.equal(d.temperature, now.temperature);
 });
+
+test('pause: the whole simulation stands still and resumes without a jump', () => {
+  const s = createNewGame(99);
+  for (const k of ['tea', 'sugar', 'cups'] as const) s.inventory[k].qty = 80;
+  s.inventory.ice.qty = 200;
+  s.locations[s.locationId].popularity = 90;
+  const game = new Game(s);
+  game.events.on('toast', () => {});
+  game.openDay();
+  game.setSpeed(4);
+  for (let i = 0; i < 600; i++) game.update(1 / 60);
+  const snap = () =>
+    JSON.stringify({
+      people: game.world.customers.map((c) => [c.x, c.y, c.state, c.pathIndex]),
+      cars: game.world.vehicles.map((v) => [v.x, v.y]),
+      queue: game.world.queue.length,
+      time: game.state.timeMin,
+      cash: game.state.cash,
+      inv: game.state.inventory,
+      today: game.state.today,
+      pour: game.world.cart.pour,
+    });
+  let events = 0;
+  game.events.on('sale', () => events++);
+  game.events.on('stockWarning', () => events++);
+  for (const phase of ['open', 'prep'] as const) {
+    if (phase === 'prep') {
+      game.closeDay();
+      game.nextDay();
+    }
+    game.setPaused(true);
+    events = 0;
+    const before = snap();
+    for (let i = 0; i < 1200; i++) game.update(1 / 60); // 20 s of real time
+    assert.equal(snap(), before, `${phase}: nothing changes while paused`);
+    assert.equal(events, 0, `${phase}: no sales or warnings while paused`);
+    game.setPaused(false);
+    const people = game.world.customers.map((c) => [c.x, c.y]);
+    game.update(1 / 60);
+    const step = Math.max(0, ...game.world.customers.slice(0, people.length).map((c, i) => Math.hypot(c.x - people[i][0], c.y - people[i][1])));
+    assert.ok(step < 0.2, `${phase}: first step after resuming is small (${step.toFixed(3)} tiles)`);
+    for (let i = 0; i < 120; i++) game.update(1 / 60);
+    assert.notEqual(snap(), before, `${phase}: the world moves again after resuming`);
+  }
+});

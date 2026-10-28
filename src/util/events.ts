@@ -3,7 +3,16 @@ export type ToastKind = 'info' | 'good' | 'bad' | 'warn' | 'unlock';
 
 export interface GameEvents {
   toast: { text: string; kind: ToastKind };
-  sale: { price: number; tip: number; x: number; y: number; satisfaction: number };
+  /** A completed purchase (emitted exactly once per transaction; `id` is unique within the world). */
+  sale: { id: number; price: number; tip: number; x: number; y: number; satisfaction: number };
+  /** The player spent money on something (for feedback sounds). */
+  purchase: { kind: 'supplies' | 'equipment' | 'unlock' };
+  /** A player action was refused (not enough money, not allowed now, …). */
+  actionFailed: { msg: string };
+  /** A goal, location, cart or feature just became available. */
+  unlocked: void;
+  /** Stock is running low (or is out) during trading. */
+  stockWarning: { empty: boolean };
   /** A customer walked away without buying (for contextual notices). */
   lost: { reason: 'price' | 'queue' | 'patience' | 'stock'; x: number; y: number };
   /** The afternoon weather differs from the morning (announced once per day). */

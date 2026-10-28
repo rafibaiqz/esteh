@@ -48,6 +48,10 @@ function timeAgo(t: number | null): string {
 }
 
 /** Segmented settings controls (shared by the title screen and the in-game menu). */
+function slider(key: 'musicVolume' | 'sfxVolume', label: string, value: number): string {
+  return `<div class="set-opt"><span>${label}</span><div class="vol-ctl"><input type="range" min="0" max="100" step="5" value="${value}" data-vol="${key}" aria-label="${label}" /><output>${value}%</output></div></div>`;
+}
+
 export function settingsHtml(): string {
   const s = getSettings();
   const seg = (key: keyof Settings, label: string, opts: [string, string][], tip: string) =>
@@ -60,6 +64,13 @@ export function settingsHtml(): string {
     ${seg('zoom', 'Zoom awal peta', [['0', '1×'], ['1', '1,5×'], ['2', '2×'], ['3', '3×']], 'Zoom saat permainan dibuka atau pindah lokasi.')}
     ${seg('speed', 'Kecepatan awal', [['1', '1×'], ['2', '2×'], ['4', '4×']], 'Kecepatan simulasi saat lapak dibuka.')}
     ${seg('hints', 'Tips pemula', [['true', 'Aktif'], ['false', 'Mati']], 'Petunjuk singkat di rincian kartu persiapan.')}
+    <div class="set-group">Suara</div>
+    ${seg('muted', 'Semua suara', [['false', 'Aktif'], ['true', 'Bisu']], 'Membisukan musik dan efek tanpa mengubah volume masing-masing.')}
+    ${seg('musicOn', 'Musik latar', [['true', 'Aktif'], ['false', 'Mati']], 'Musik santai \u201cTeh Sore\u201d yang diputar berulang.')}
+    ${slider('musicVolume', 'Volume musik', s.musicVolume)}
+    ${seg('sfxOn', 'Efek suara', [['true', 'Aktif'], ['false', 'Mati']], 'Klik tombol, bunyi kasir saat pembeli membayar, dan bunyi pemberitahuan.')}
+    ${slider('sfxVolume', 'Volume efek', s.sfxVolume)}
+    ${seg('pauseMusic', 'Musik saat jeda', [['normal', 'Normal'], ['soft', 'Pelan'], ['off', 'Senyap']], 'Volume musik selama menu jeda terbuka. Permainan tetap berhenti total.')}
   </div>`;
 }
 
@@ -225,8 +236,8 @@ export class TitleScreen {
     const last = lastPlayed();
     const inGame = this.h.inGame();
     return `<nav class="title-menu">
-      ${inGame ? `<button class="tbtn primary" data-ta="resume"><b>Kembali ke Permainan</b></button>` : ''}
-      ${!inGame && last ? `<button class="tbtn primary" data-ta="continue"><b>Lanjutkan</b><small>${escapeHtml(last.businessName)} · Hari ${last.day}</small></button>` : ''}
+      ${inGame ? `<button class="tbtn primary" data-ta="resume"><b>Lanjutkan Permainan</b>${last ? `<small>${escapeHtml(last.businessName)} · Hari ${last.day}</small>` : ''}</button>` : ''}
+      ${!inGame && last ? `<button class="tbtn primary" data-ta="continue"><b>Lanjutkan Permainan</b><small>${escapeHtml(last.businessName)} · Hari ${last.day}</small></button>` : ''}
       <button class="tbtn ${!inGame && !last ? 'primary' : ''}" data-ta="new"><b>Main Baru</b></button>
       <button class="tbtn" data-ta="load"><b>Muat Permainan</b>${listSaves().length ? `<small>${listSaves().length} simpanan</small>` : ''}</button>
       <button class="tbtn" data-ta="settings"><b>Pengaturan</b></button>

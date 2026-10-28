@@ -153,10 +153,32 @@ export interface Settings {
   zoom: number;
   speed: number;
   hints: boolean;
+  /** Audio (shared by every save slot). Volumes are 0–100. */
+  muted: boolean;
+  musicOn: boolean;
+  musicVolume: number;
+  sfxOn: boolean;
+  sfxVolume: number;
+  /** Background music while the pause menu is open. */
+  pauseMusic: 'normal' | 'soft' | 'off';
 }
 
 const SETTINGS_KEY = 'esteh.settings';
-export const DEFAULT_SETTINGS: Settings = { reactions: true, weatherFx: 'full', zoom: 2, speed: 1, hints: true };
+export const DEFAULT_SETTINGS: Settings = {
+  reactions: true,
+  weatherFx: 'full',
+  zoom: 2,
+  speed: 1,
+  hints: true,
+  muted: false,
+  musicOn: true,
+  musicVolume: 25,
+  sfxOn: true,
+  sfxVolume: 70,
+  pauseMusic: 'soft',
+};
+
+const volume = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : fallback);
 let current: Settings | null = null;
 
 export function getSettings(): Settings {
@@ -171,6 +193,12 @@ export function getSettings(): Settings {
       if ([0, 1, 2, 3].includes(Number(r.zoom))) current.zoom = Number(r.zoom);
       if ([1, 2, 4].includes(Number(r.speed))) current.speed = Number(r.speed);
       if (typeof r.hints === 'boolean') current.hints = r.hints;
+      if (typeof r.muted === 'boolean') current.muted = r.muted;
+      if (typeof r.musicOn === 'boolean') current.musicOn = r.musicOn;
+      if (typeof r.sfxOn === 'boolean') current.sfxOn = r.sfxOn;
+      current.musicVolume = volume(r.musicVolume, current.musicVolume);
+      current.sfxVolume = volume(r.sfxVolume, current.sfxVolume);
+      if (r.pauseMusic === 'normal' || r.pauseMusic === 'soft' || r.pauseMusic === 'off') current.pauseMusic = r.pauseMusic;
     } catch {
       /* defaults */
     }

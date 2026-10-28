@@ -1499,3 +1499,30 @@ details.more .tbl {
   letter-spacing: 0.6px;
   color: var(--cream);
 }
+
+/* ------------------------------------------------------------ audio settings */
+.set-group {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--caramel);
+  font: 700 13px var(--font-head);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--tea);
+}
+.vol-ctl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vol-ctl input[type='range'] {
+  width: 150px;
+  accent-color: var(--amber);
+  cursor: pointer;
+}
+.vol-ctl output {
+  min-width: 38px;
+  text-align: right;
+  font: 700 13px var(--font-head);
+  color: var(--tea);
+}

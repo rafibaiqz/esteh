@@ -82,6 +82,8 @@ export class World {
   serviceLeft = 0;
   serviceTotal = 1;
   private spawnAcc = 0;
+  /** Running number of completed sales in this world (dedupes the sale event). */
+  private saleSeq = 0;
   private regularAcc = 0;
   private vehicleAcc = 0;
   private demandCache: DemandBreakdown | null = null;
@@ -474,7 +476,7 @@ export class World {
     this.cart.celebrate();
     this.floaters.push({ x: c.x, y: c.y, text: `+${Math.round(price / 100) / 10}rb`, color: '#ffe66d', t: 1.4 });
     if (tip) this.floaters.push({ x: c.x + 0.3, y: c.y - 0.3, text: `tip +${tip}`, color: '#8ee06b', t: 1.8 });
-    ctx.events.emit('sale', { price, tip, x: c.x, y: c.y, satisfaction: sat.value });
+    ctx.events.emit('sale', { id: ++this.saleSeq, price, tip, x: c.x, y: c.y, satisfaction: sat.value });
     this.leaveQueue(c);
     if (cupsPossible(s) === 0) this.dismissQueue(ctx, 'stock');
   }
