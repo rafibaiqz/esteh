@@ -13,11 +13,12 @@ import { applySettingClick, settingsHtml } from './TitleScreen';
 import { rp } from '../util/format';
 import { $, confirmDialog, initTooltips, modal, modalOpen, morph, showFloatingTip, toast } from './dom';
 import { icon, type IconName } from './icons';
-import { cartsMenu, locationMenu, recipeMenu, suppliesMenu, upgradesMenu } from './menusBusiness';
+import { assetsMenu, cartsMenu, locationMenu, recipeMenu, suppliesMenu, upgradesMenu } from './menusBusiness';
+import { assetName, hasSellableAssets, purchasePrice, resaleValue, type AssetRef } from '../systems/AssetSystem';
 import { marketingMenu, staffMenu, statsMenu } from './menusManage';
 import { cartPopover, controlsHtml, howtoHtml, hudHtml, locHud, pauseMenu, prepMini, prepPopup, reportBody } from './panels';
 
-export type MenuId = 'location' | 'upgrades' | 'staff' | 'marketing' | 'recipe' | 'supplies' | 'carts' | 'stats';
+export type MenuId = 'location' | 'upgrades' | 'staff' | 'marketing' | 'recipe' | 'supplies' | 'carts' | 'stats' | 'assets';
 
 /** Bottom toolbar: one button per business menu, most-used first. */
 const TOOLS: { id: MenuId; label: string; icon: IconName; key: string; tip: string }[] = [
@@ -68,7 +69,7 @@ export class UI {
   private noticeAt: Record<string, number> = {};
   private sellerAt = 0;
   /** Set by main.ts: return to the title screen (game is saved first). */
-  onMainMenu: (screen?: 'main' | 'new') => void = () => {};
+  onMainMenu: (screen?: 'main' | 'new' | 'load') => void = () => {};
   onSettingsChanged: () => void = () => {};
   /** True while another screen (the title screen) covers the game: shortcuts are ignored. */
   isBlocked: () => boolean = () => false;
@@ -188,6 +189,8 @@ export class UI {
         return marketingMenu(g);
       case 'stats':
         return statsMenu(g, this.statsTab, this.salesRate());
+      case 'assets':
+        return assetsMenu(g);
     }
   }
 
@@ -321,17 +324,36 @@ export class UI {
     this.prepView = 'expanded';
   }
 
+  /**
+   * No stock for a single cup and no cash to restock. If there is equipment to
+   * sell, that is the way back (never a loan, never free money). Otherwise the
+   * player can load another save or start over — this save is never deleted.
+   */
   private async showBankrupt(): Promise<void> {
-    this.bankruptShown = this.game.state.day;
+    const s = this.game.state;
+    this.bankruptShown = s.day;
+    if (hasSellableAssets(s)) {
+      const v = await modal(
+        'Kas menipis!',
+        `<p>Stok bahan tidak cukup untuk segelas es teh, dan kas (${rp(s.cash)}) belum cukup untuk membeli bahan.</p><p><b>Jual sebagian peralatan untuk menambah modal</b>, lalu belanja bahan lagi.</p>`,
+        [
+          { label: 'Nanti saja', value: 'cancel' },
+          { label: 'Jual Aset', value: 'sell', kind: 'primary' },
+        ],
+      );
+      if (v === 'sell') this.openMenu('assets');
+      return;
+    }
     const v = await modal(
-      'Modal habis!',
-      `<p>Stok bahan tidak cukup untuk membuat segelas es teh, dan kas (${rp(this.game.state.cash)}) tidak cukup untuk membeli bahan.</p><p>Usaha ini tidak bisa dilanjutkan. Mulai usaha baru?</p>`,
+      'Modal habis',
+      `<p>Stok bahan tidak cukup untuk segelas es teh, kas (${rp(s.cash)}) tidak cukup untuk membeli bahan, dan tidak ada peralatan yang bisa dijual.</p><p>Kamu bisa memuat simpanan lain atau memulai usaha baru. Simpanan ini tetap disimpan dan tidak dihapus.</p>`,
       [
         { label: 'Lihat dulu', value: 'cancel' },
+        { label: 'Muat Permainan', value: 'load' },
         { label: 'Mulai Usaha Baru', value: 'new', kind: 'primary' },
       ],
     );
-    if (v === 'new') this.onMainMenu('new');
+    if (v === 'new' || v === 'load') this.onMainMenu(v);
   }
 
   /** Clears per-game UI state after a different game was loaded. */
@@ -583,6 +605,32 @@ export class UI {
         case 'cart-use':
           g.useCart(d.id as CartId);
           break;
+        case 'sell-asset': {
+          const ref = { kind: d.kind, id: d.id } as AssetRef;
+          const original = purchasePrice(s, ref);
+          const price = resaleValue(original);
+          const lost = ref.kind === 'upgrade' ? UPGRADES[ref.id].effect : 'Gerobak cadangan ini hilang dari koleksimu.';
+          const choice = await modal(
+            `Jual ${assetName(ref)}?`,
+            `<table class="sale-sum">
+              <tr><td>Harga beli</td><td class="num">${rp(original)}</td></tr>
+              <tr><td>Susut 20%</td><td class="num neg">−${rp(original - price)}</td></tr>
+              <tr class="total"><td>Kamu menerima</td><td class="num pos">${rp(price)}</td></tr>
+              <tr><td>Kas setelah dijual</td><td class="num">${rp(s.cash + price)}</td></tr>
+            </table>
+            <p class="sale-effect"><b>Efek yang hilang:</b> ${lost}</p>`,
+            [
+              { label: 'Batal', value: 'cancel' },
+              { label: `Jual ${rp(price)}`, value: 'sell', kind: 'danger' },
+            ],
+          );
+          const ok = choice === 'sell';
+          if (ok) {
+            g.sellAsset(ref);
+            if (this.menu === 'assets') this.flashRow('#hud .cash');
+          }
+          break;
+        }
         case 'hire':
           g.hire(d.id as StaffRole);
           break;

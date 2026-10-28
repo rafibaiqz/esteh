@@ -19,6 +19,7 @@ import {
 import { eventDef, eventScopeText } from '../systems/EventSystem';
 import { demandLevel, estimateDay, stockPlan } from '../systems/ForecastSystem';
 import { activeIngredients, cupsByIngredient, cupsPossible, LOW_STOCK_CUPS } from '../systems/InventorySystem';
+import { hasSellableAssets } from '../systems/AssetSystem';
 import { getSettings, savedAt, storageAvailable } from '../systems/SaveSystem';
 import { dayPart, forecastText, todayText, weatherNow, weatherNowLabel } from '../systems/WeatherSystem';
 import { WEEKDAYS, dayOfMonth, dayOfWeek, isWeekend, monthOf } from '../util/calendar';
@@ -135,7 +136,11 @@ export function prepPopup(game: Game, details: boolean): string {
   const outlook = now.later ? `Mulai 13:00 ${WEATHER[now.later].name.toLowerCase()} · puncak ±${now.peak}°C` : `Sepanjang hari · puncak ±${now.peak}°C`;
 
   let stockLine: string;
-  if (possible === 0) stockLine = `<div class="pp-warn">${icon('empty', 18)}<span>Bahan habis.</span><button class="link" data-act="menu" data-id="supplies">Beli</button></div>`;
+  const plan0 = stockPlan(s, mods, est);
+  const cashShort = plan0.totalCost > s.cash && hasSellableAssets(s);
+  if (cashShort && possible < est.cups)
+    stockLine = `<div class="pp-warn">${icon('cash', 18)}<span>Kas menipis untuk belanja bahan. Jual sebagian peralatan?</span><button class="link" data-act="menu" data-id="assets">Jual Aset</button></div>`;
+  else if (possible === 0) stockLine = `<div class="pp-warn">${icon('empty', 18)}<span>Bahan habis.</span><button class="link" data-act="menu" data-id="supplies">Beli</button></div>`;
   else if (possible < est.cups)
     stockLine = `<div class="pp-warn">${icon('cups', 18)}<span>Stok ±${num(possible)} gelas, perkiraan laku ±${est.cups}.</span><button class="link" data-act="menu" data-id="supplies">Beli</button></div>`;
   else stockLine = `<div class="pp-ok">${icon('check', 14)}<span>Stok cukup (±${num(possible)} gelas)</span></div>`;
@@ -348,6 +353,7 @@ export function reportBody(game: Game, l: DayLedger): string {
       <table class="ledger small">
         ${line('Belanja bahan (stok)', -l.supplyPurchases, '', 'Uang keluar untuk membeli stok. Menjadi biaya saat bahan terpakai.')}
         ${line('Investasi (alat, gerobak, izin, resep)', -l.capex)}
+        ${l.assetSales ? line('Penjualan aset (80% harga beli)', l.assetSales, 'pos', 'Uang dari menjual peralatan atau gerobak cadangan') : ''}
         <tr><td>Kas awal → kas akhir</td><td class="num">${rp(l.cashStart)} → ${rp(l.cashEnd ?? 0)}</td></tr>
         <tr class="total"><td>Arus kas hari ini</td><td class="num ${flow < 0 ? 'neg' : 'pos'}">${rp(flow)}</td></tr>
       </table>

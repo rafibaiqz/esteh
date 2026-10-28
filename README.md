@@ -232,6 +232,16 @@ Gambar gerobak di toko dibuat oleh fungsi yang sama dengan gerobak di peta (`ren
 - **4 staf:** penjual, peracik teh, kasir, dan supervisor. Ada biaya rekrut dan gaji harian. Staf memengaruhi kecepatan, daya tarik, kesabaran pembeli, kepuasan, dan peluang tip.
 - **5 jenis promosi:** berlaku di lokasi tempat promosi dijalankan, dengan efek yang makin kecil kalau ditumpuk.
 
+### Menjual aset
+
+Kalau kas tidak cukup untuk belanja bahan, peralatan dan gerobak cadangan bisa dijual kembali lewat panel **Jual Aset** (dari tautan di panel Alat, Gerobak, dan Bahan, dari kartu persiapan, atau dari peringatan "Kas menipis!").
+
+- Harga jual selalu **80% dari harga beli** (susut 20%), dibulatkan ke bawah: Rp 100.000 → Rp 80.000, Rp 50.000 → Rp 40.000. Yang dipakai adalah harga yang dulu kamu bayar, bukan harga toko sekarang (simpanan lama memakai harga katalog).
+- Setiap penjualan minta konfirmasi, menampilkan harga beli, susut, uang yang diterima, kas sesudahnya, dan efek yang akan hilang. Efek alat (kapasitas, kecepatan, daya tarik, dll.) langsung hilang.
+- Tidak bisa dijual: gerobak yang sedang dipakai, gerobak awal (tidak punya nilai jual), alat yang menjadi dasar alat lain (misalnya Kotak Es selama Cooler masih terpasang), dan alat penyimpanan kalau stok sekarang tidak akan muat lagi. Bahan (teh, gula, es, gelas, lemon), izin lokasi, resep, dan staf bukan aset.
+- Uang dari penjualan masuk kas dan tercatat di laporan sebagai **Penjualan aset** (arus kas, bukan laba).
+- **Tidak ada pinjaman, utang, kredit pemasok, atau uang gratis.** Kalau bahan habis, kas kurang, dan tidak ada aset tersisa, permainan menawarkan memuat simpanan lain atau memulai usaha baru, tanpa menghapus simpanan ini.
+
 ### Laporan dan statistik
 
 Laporan akhir hari dibuat ringkas: laba bersih besar di atas, empat angka utama (gelas terjual, kepuasan, popularitas, pembeli yang pergi), empat baris uang (pendapatan, tip, biaya bahan, operasional), alasan pembeli pergi, dan hal yang baru terbuka. **Rincian keuangan** yang bisa dibuka memuat:
@@ -315,6 +325,7 @@ src/
     EconomySystem.ts      model permintaan, harga wajar, kepuasan, tip, laba
     ForecastSystem.ts     perkiraan penjualan, tingkat permintaan, opsi harga, rencana stok
     ExposureSystem.ts     berapa banyak pejalan kaki melihat gerobak; menjaga arus pembeli tetap sama di peta besar
+    AssetSystem.ts        menjual alat & gerobak cadangan: aturan harga 80%, syarat boleh dijual
     CustomerSystem.ts     simulasi pejalan kaki, antrean, penjualan, reaksi, pelanggan tetap
     WeatherSystem.ts      cuaca harian, prakiraan, kurva suhu
     EventSystem.ts        pemilihan berita dan penerapan efeknya

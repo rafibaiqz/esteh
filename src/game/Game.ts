@@ -8,6 +8,7 @@ import { avgSatisfaction, dailyFixedCosts, netProfit, operatingExpenses, ingredi
 import { buySupply, cupsPossible, limitingIngredient, lowStock, spoilOvernight, type ActionResult } from '../systems/InventorySystem';
 import { getModifiers, type Modifiers } from '../systems/Modifiers';
 import { announceNewUnlocks, checkGoals, checkRequirement, primeAnnouncements } from '../systems/ProgressionSystem';
+import { assetKey, assetName, hasSellableAssets, purchasePrice, resaleValue, saleCheck, type AssetRef } from '../systems/AssetSystem';
 import { getSettings, saveSlot } from '../systems/SaveSystem';
 import { advanceWeather, SHIFT_HOUR } from '../systems/WeatherSystem';
 import { WEATHER } from '../data/weather';
@@ -67,7 +68,7 @@ export class Game {
     this.events.emit('toast', { text, kind });
   }
 
-  private result(r: ActionResult, goodKind: 'good' | 'unlock' = 'good', spend?: 'supplies' | 'equipment' | 'unlock'): ActionResult {
+  private result(r: ActionResult, goodKind: 'good' | 'unlock' = 'good', spend?: 'supplies' | 'equipment' | 'unlock' | 'sale'): ActionResult {
     this.toast(r.msg, r.ok ? goodKind : 'bad');
     if (r.ok) {
       if (spend) this.events.emit('purchase', { kind: spend });
@@ -337,6 +338,7 @@ export class Game {
   buySupply(id: Ingredient, pack: number): ActionResult {
     const r = buySupply(this.state, id, pack, this.mods);
     if (r.ok) this.emptyWarned = false;
+    else if (r.msg === 'Uang tidak cukup.' && hasSellableAssets(this.state)) r.msg = 'Kas menipis! Jual sebagian peralatan untuk menambah modal.';
     return this.result(r, 'good', 'supplies');
   }
 
@@ -434,6 +436,7 @@ export class Game {
     s.cash -= def.price;
     s.today.capex += def.price;
     s.upgrades.push(id);
+    s.assetCost[assetKey({ kind: 'upgrade', id })] = def.price;
     this.refresh();
     this.events.emit('cartChanged', undefined);
     return this.result({ ok: true, msg: `${def.name} terpasang!` }, 'good', 'equipment');
@@ -448,6 +451,7 @@ export class Game {
     s.cash -= def.price;
     s.today.capex += def.price;
     s.ownedCarts.push(id);
+    s.assetCost[assetKey({ kind: 'cart', id })] = def.price;
     if (s.phase === 'prep') this.useCart(id, true);
     return this.result({ ok: true, msg: s.phase === 'prep' ? `${def.name} dibeli dan langsung dipakai!` : `${def.name} dibeli! Pakai saat persiapan hari berikutnya.` }, 'good', 'equipment');
   }
@@ -466,6 +470,26 @@ export class Game {
     if (!silent) this.toast(`Sekarang memakai ${CARTS[id].name}.`, 'good');
     this.save();
     return { ok: true, msg: '' };
+  }
+
+  /**
+   * Sells owned equipment or a spare cart for 80% of what was paid. The only
+   * way to raise cash besides trading (no loans or credit). Validated here, so
+   * a double click or a stale button can never sell the same asset twice.
+   */
+  sellAsset(a: AssetRef): ActionResult {
+    const s = this.state;
+    const chk = saleCheck(s, a);
+    if (!chk.ok) return this.result({ ok: false, msg: chk.reason ?? 'Tidak bisa dijual.' });
+    const price = resaleValue(purchasePrice(s, a));
+    if (a.kind === 'upgrade') s.upgrades = s.upgrades.filter((u) => u !== a.id);
+    else s.ownedCarts = s.ownedCarts.filter((c) => c !== a.id);
+    delete s.assetCost[assetKey(a)];
+    s.cash += price;
+    s.today.assetSales += price;
+    this.refresh();
+    this.events.emit('cartChanged', undefined);
+    return this.result({ ok: true, msg: `${assetName(a)} terjual seharga ${rp(price)}.` }, 'good', 'sale');
   }
 
   // ------------------------------------------------------------------ staff

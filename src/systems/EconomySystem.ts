@@ -39,7 +39,7 @@ export function netProfit(l: DayLedger): number {
 
 /** Actual change in cash: everything received minus everything paid, including stock and investments. */
 export function cashFlow(l: DayLedger): number {
-  return l.revenue + (l.tips ?? 0) + l.bonus - l.supplyPurchases - operatingExpenses(l) - l.capex;
+  return l.revenue + (l.tips ?? 0) + l.bonus + (l.assetSales ?? 0) - l.supplyPurchases - operatingExpenses(l) - l.capex;
 }
 
 export function avgSatisfaction(l: DayLedger): number {

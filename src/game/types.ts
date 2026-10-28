@@ -103,6 +103,8 @@ export interface DayLedger {
   supplyPurchases: number;
   /** One-off investments: carts, equipment, location permits, recipes. */
   capex: number;
+  /** Cash received from selling equipment or carts (80% of their purchase price). */
+  assetSales: number;
   passersby: number;
   customersServed: number;
   lost: Record<LostReason, number>;
@@ -180,6 +182,8 @@ export interface GameState {
   ownedCarts: CartId[];
   activeCart: CartId;
   upgrades: UpgradeId[];
+  /** What was paid for each owned asset, keyed "upgrade:<id>" / "cart:<id>" (basis for resale). */
+  assetCost: Record<string, number>;
   staff: StaffRole[];
   campaigns: Campaign[];
   features: FeatureId[];

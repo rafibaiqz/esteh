@@ -49,7 +49,7 @@ export function bindAudio(audio: AudioManager, game: Game): void {
   game.events.on('locationChanged', () => {
     lastSale = -1; // a new world numbers its sales from the start
   });
-  game.events.on('purchase', ({ kind }) => audio.play(kind === 'supplies' ? 'buy' : kind === 'unlock' ? 'unlock' : 'coins'));
+  game.events.on('purchase', ({ kind }) => audio.play(kind === 'supplies' ? 'buy' : kind === 'unlock' ? 'unlock' : kind === 'sale' ? 'cash' : 'coins'));
   game.events.on('actionFailed', () => audio.play('error'));
   game.events.on('unlocked', () => audio.play('unlock'));
   game.events.on('dayStarted', () => audio.play('dayStart'));

@@ -6,7 +6,7 @@ import { initWeather, rollForecast } from '../systems/WeatherSystem';
 import { DEFAULT_SELLER, SELLER_LOOKS } from '../render/characters';
 import { CARTS } from '../data/carts';
 import { UPGRADES } from '../data/upgrades';
-import type { ActiveEvent, Complaint, DayLedger, GameState, LocationId, LocationProgress, LostReason, Recipe } from './types';
+import type { ActiveEvent, CartId, Complaint, DayLedger, GameState, LocationId, LocationProgress, LostReason, Recipe, UpgradeId } from './types';
 
 /**
  * Save format version.
@@ -74,6 +74,7 @@ export function emptyLedger(day: number, locationId: LocationId, weather: GameSt
     bonus: 0,
     supplyPurchases: 0,
     capex: 0,
+    assetSales: 0,
     passersby: 0,
     customersServed: 0,
     lost,
@@ -141,6 +142,7 @@ export function createNewGame(seed = Math.floor(Math.random() * 1e9), setup?: Pa
     ownedCarts: ['gerobak'],
     activeCart: 'gerobak',
     upgrades: [],
+    assetCost: {},
     staff: [],
     campaigns: [],
     features: [],
@@ -219,6 +221,16 @@ export function sanitizeState(raw: unknown): GameState | null {
   s.unlockedLocations = s.unlockedLocations.filter((id) => !!LOCATIONS[id]);
   s.ownedCarts = s.ownedCarts.filter((id) => !!CARTS[id]);
   s.upgrades = s.upgrades.filter((id) => !!UPGRADES[id]);
+  // Purchase prices (resale basis). Missing entries fall back to the catalogue price; values
+  // that could not have been paid (negative, above twice the catalogue price) are dropped.
+  const costs = r.assetCost && typeof r.assetCost === 'object' ? (r.assetCost as Record<string, unknown>) : {};
+  s.assetCost = {};
+  for (const [key, v] of Object.entries(costs)) {
+    const [kind, id] = key.split(':');
+    const cat = kind === 'upgrade' && UPGRADES[id as UpgradeId] ? UPGRADES[id as UpgradeId].price : kind === 'cart' && CARTS[id as CartId] ? CARTS[id as CartId].price : null;
+    const owned = kind === 'upgrade' ? s.upgrades.includes(id as UpgradeId) : s.ownedCarts.includes(id as CartId);
+    if (cat !== null && owned && typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= cat * 2) s.assetCost[key] = v;
+  }
   // Identity (v4). Old saves get a fresh id and default names.
   if (typeof s.saveId !== 'string' || !s.saveId) s.saveId = newSaveId();
   s.ownerName = typeof r.ownerName === 'string' && r.ownerName.trim() ? r.ownerName.trim().slice(0, 24) : 'Juragan';

@@ -12,6 +12,7 @@ import { bestPrice, demandLevel, estimateDay, priceOptions, stockPlan } from '..
 import { activeIngredients, costPerCup, cupsByIngredient, cupsPossible, LOW_STOCK_CUPS, packPrice, supplyPriceMult } from '../systems/InventorySystem';
 import { BASE_SERVICE_TIME } from '../systems/Modifiers';
 import { checkRequirement } from '../systems/ProgressionSystem';
+import { RESALE_RATE, hasSellableAssets, listAssets, type AssetListing } from '../systems/AssetSystem';
 import { COMPLAINT_TEXT, recipeInsight, TASTE_WEIGHTS } from '../systems/RecipeSystem';
 import { forecastText, weatherNow } from '../systems/WeatherSystem';
 import { escapeHtml, num, pct, rp, rpShort } from '../util/format';
@@ -104,11 +105,65 @@ export function suppliesMenu(game: Game): string {
   return `${menuHeader('Bahan', 'supplies', `Kas ${rp(s.cash)} · bisa dibuat ${num(cupsPossible(s))} gelas`)}
     <div class="menu-body">
       ${discount ? `<div class="note good">Harga grosir Pasar: semua bahan ${pct(discount * 100)} lebih murah.</div>` : ''}
+      ${cashShortNote(game)}
       ${suggestion(game)}
       ${rows}
       <div class="note small">Modal bahan ${rp(costPerCup(s))}/gelas. Es mencair ${pct(mods.iceMelt * 100)} tiap malam${s.features.includes('lemon') ? `, lemon layu ${pct(mods.lemonSpoil * 100)}` : ''} — beli secukupnya.</div>
       <details class="more"><summary>Rincian rencana stok</summary>${planTable(game)}</details>
     </div>`;
+}
+
+/**
+ * Shown when the cash cannot cover today's restock: points to selling equipment
+ * (the only way to raise money besides trading — there are no loans).
+ */
+export function cashShortNote(game: Game): string {
+  const s = game.state;
+  const plan = stockPlan(s, game.mods, estimateDay(s, game.mods));
+  const short = (plan.totalCost > 0 && plan.totalCost > s.cash) || (cupsPossible(s) === 0 && s.cash < 3000);
+  if (!short || s.phase === 'report') return '';
+  if (hasSellableAssets(s))
+    return `<div class="note warn cash-short">${icon('cash', 18)}<span><b>Kas menipis!</b> Jual sebagian peralatan untuk menambah modal.</span><button class="link" data-act="menu" data-id="assets">Jual Aset</button></div>`;
+  if (cupsPossible(s) === 0)
+    return `<div class="note warn cash-short">${icon('cash', 18)}<span><b>Kas tidak cukup</b> dan tidak ada aset yang bisa dijual. Kamu bisa memuat simpanan lain atau memulai usaha baru dari menu utama; simpanan ini tidak dihapus.</span></div>`;
+  return `<div class="note cash-short">${icon('cash', 18)}<span>Kas belum cukup untuk semua saran belanja. Berjualan dulu dengan stok yang ada untuk menambah modal.</span></div>`;
+}
+
+/** Small link row in the equipment and cart shops. */
+function sellEntry(s: Game['state']): string {
+  if (!listAssets(s).length) return '';
+  return `<div class="sell-entry"><span>Butuh modal? Aset bisa dijual lagi seharga ${Math.round(RESALE_RATE * 100)}% dari harga belinya.</span><button class="link" data-act="menu" data-id="assets">Jual Aset</button></div>`;
+}
+
+// ------------------------------------------------------------------ Sell assets
+
+function assetRow(a: AssetListing): string {
+  const ico = a.ref.kind === 'upgrade' ? upgradeIcon(a.ref.id, 28) : icon('carts', 28);
+  const effect = a.ref.kind === 'upgrade' ? UPGRADES[a.ref.id].effect : CARTS[a.ref.id].tradeoff;
+  return `<div class="asset-row ${a.sellable ? '' : 'blocked'}">
+    <span class="asset-ico" data-tip="${escapeHtml(effect)}">${ico}</span>
+    <div class="asset-info">
+      <b>${a.name}</b>
+      <small>Dibeli ${rp(a.original)} · susut 20% (−${rp(a.depreciation)})</small>
+      ${a.sellable ? '' : `<small class="neg">${a.reason}</small>`}
+    </div>
+    <button class="btn ${a.sellable ? 'primary' : ''}" data-act="sell-asset" data-kind="${a.ref.kind}" data-id="${a.ref.id}" ${a.sellable ? '' : `disabled data-tip="${escapeHtml(a.reason ?? '')}"`}>Jual ${rp(a.price)}</button>
+  </div>`;
+}
+
+export function assetsMenu(game: Game): string {
+  const s = game.state;
+  const all = listAssets(s);
+  const ups = all.filter((a) => a.ref.kind === 'upgrade');
+  const carts = all.filter((a) => a.ref.kind === 'cart');
+  const total = all.filter((a) => a.sellable).reduce((sum, a) => sum + a.price, 0);
+  const body = all.length
+    ? `${ups.length ? `<h3>Peralatan</h3>${ups.map(assetRow).join('')}` : ''}
+       ${carts.length ? `<h3>Gerobak cadangan</h3>${carts.map(assetRow).join('')}` : ''}
+       <div class="note small">Harga jual = ${Math.round(RESALE_RATE * 100)}% dari harga beli (susut 20%). Setiap penjualan minta konfirmasi dan efek alatnya langsung hilang. Gerobak yang sedang dipakai dan gerobak awal tidak bisa dijual; bahan (teh, gula, es, gelas) bukan aset.</div>`
+    : `<div class="note">Belum ada peralatan atau gerobak cadangan yang bisa dijual. Gerobak yang sedang dipakai tidak bisa dijual, dan bahan tetap ada di menu Bahan.</div>`;
+  return `${menuHeader('Jual Aset', 'cash', `Kas ${rp(s.cash)}${total ? ` · bisa terkumpul hingga ${rp(total)}` : ''}`)}
+    <div class="menu-body">${body}</div>`;
 }
 
 // ------------------------------------------------------------------ Recipe & price
@@ -311,7 +366,7 @@ export function upgradesMenu(game: Game): string {
     return `<h3 class="cat">${cat.name} <small>${owned}/${ids.length}</small></h3><div class="cat-desc">${cat.desc}</div><div class="grid2">${cards}</div>`;
   }).join('');
   return `${menuHeader('Peralatan', 'upgrades', `${s.upgrades.length}/${UPGRADE_ORDER.length} terpasang · ikut pindah ke gerobak mana pun`)}
-    <div class="menu-body">${sections}</div>`;
+    <div class="menu-body">${sellEntry(s)}${sections}</div>`;
 }
 
 // ------------------------------------------------------------------ Carts
@@ -374,6 +429,7 @@ export function cartsMenu(game: Game): string {
         <div><span>Daya tarik total</span><b>×${m.attraction.toFixed(2)}</b></div>
       </div>
       <div class="note small">Panah ▲▼ membandingkan dengan gerobak yang sedang dipakai. Tidak ada gerobak yang unggul di semua hal.</div>
+      ${sellEntry(s)}
       ${cards}
     </div>`;
 }

@@ -30,6 +30,9 @@ import { advanceWeather, weatherNow, weatherNowLabel } from '../src/systems/Weat
 import { hudHtml, prepMini, prepPopup } from '../src/ui/panels';
 import { BASE_VIEW_RADIUS, exposureFor, trafficScale } from '../src/systems/ExposureSystem';
 import { buildMap } from '../src/data/maps';
+import { CARTS } from '../src/data/carts';
+import { GOALS } from '../src/data/business';
+import { hasSellableAssets, listAssets, resaleValue, type AssetRef } from '../src/systems/AssetSystem';
 import { MAP_SIZE } from '../src/data/mapKit';
 import { LOCATIONS } from '../src/data/locations';
 import { Pathfinder } from '../src/world/Pathfinding';
@@ -464,4 +467,121 @@ test('pause: the whole simulation stands still and resumes without a jump', () =
     for (let i = 0; i < 120; i++) game.update(1 / 60);
     assert.notEqual(snap(), before, `${phase}: the world moves again after resuming`);
   }
+});
+
+test('assets: equipment sells for 80% of what was paid, once, with its effects removed', () => {
+  // The one price rule.
+  assert.equal(resaleValue(100_000), 80_000);
+  assert.equal(resaleValue(50_000), 40_000);
+  assert.equal(resaleValue(25_000), 20_000);
+  assert.equal(resaleValue(55_555), 44_444, 'rounded down');
+
+  const s = createNewGame(7);
+  s.cash = 1_000_000;
+  s.totals.cupsSold = 5000;
+  s.today = ledgerFor(s);
+  const game = new Game(s);
+  game.events.on('toast', () => {});
+  const ice: AssetRef = { kind: 'upgrade', id: 'kotakEs' };
+
+  // Not owned → refused, cash untouched.
+  let cash = game.state.cash;
+  assert.equal(game.sellAsset(ice).ok, false);
+  assert.equal(game.state.cash, cash);
+
+  // Buy (50 000), check the effect, sell (40 000) exactly once.
+  assert.ok(game.buyUpgrade('kotakEs').ok);
+  assert.equal(game.state.assetCost['upgrade:kotakEs'], 50_000);
+  const meltWith = game.mods.iceMelt;
+  cash = game.state.cash;
+  let sales = 0;
+  game.events.on('purchase', ({ kind }) => kind === 'sale' && sales++);
+  const r = game.sellAsset(ice);
+  assert.ok(r.ok, r.msg);
+  assert.equal(game.state.cash, cash + 40_000);
+  assert.equal(game.state.today.assetSales, 40_000);
+  assert.ok(!game.state.upgrades.includes('kotakEs'));
+  assert.ok(game.mods.iceMelt > meltWith, 'ice melts faster again without the ice box');
+  assert.equal(game.sellAsset(ice).ok, false, 'cannot sell twice');
+  assert.equal(game.state.cash, cash + 40_000, 'cash rose exactly once');
+  assert.equal(sales, 1);
+  assert.equal(game.state.cash, game.state.today.cashStart + cashFlow(game.state.today), 'cash flow still balances');
+
+  // The recorded purchase price is used, not today's shop price.
+  game.buyUpgrade('payung');
+  game.state.assetCost['upgrade:payung'] = 30_000;
+  cash = game.state.cash;
+  game.sellAsset({ kind: 'upgrade', id: 'payung' });
+  assert.equal(game.state.cash, cash + 24_000);
+
+  // Storage that would leave stock without room cannot be sold until the stock is used.
+  game.buyUpgrade('rakGelas');
+  const cap = game.mods.capacity.cups;
+  game.state.inventory.cups.qty = cap;
+  assert.equal(game.sellAsset({ kind: 'upgrade', id: 'rakGelas' }).ok, false);
+  game.state.inventory.cups.qty = 10;
+  assert.ok(game.sellAsset({ kind: 'upgrade', id: 'rakGelas' }).ok);
+  assert.ok(game.mods.capacity.cups < cap, 'capacity shrinks back');
+
+  // Equipment another item is built on is sold last; the cart in use and the free starter cart never.
+  game.buyUpgrade('kotakEs');
+  game.buyUpgrade('cooler');
+  assert.equal(game.sellAsset(ice).ok, false);
+  assert.ok(game.sellAsset({ kind: 'upgrade', id: 'cooler' }).ok);
+  assert.ok(game.sellAsset(ice).ok);
+  assert.equal(game.sellAsset({ kind: 'cart', id: 'gerobak' }).ok, false);
+  game.buyCart('mobile');
+  assert.equal(game.state.activeCart, 'mobile');
+  assert.ok(game.sellAsset({ kind: 'cart', id: 'gerobak' }).ok === false, 'starter cart has no resale value');
+  assert.equal(game.sellAsset({ kind: 'cart', id: 'mobile' }).ok, false, 'the cart in use cannot be sold');
+  game.useCart('gerobak');
+  cash = game.state.cash;
+  assert.ok(game.sellAsset({ kind: 'cart', id: 'mobile' }).ok);
+  assert.equal(game.state.cash, cash + resaleValue(CARTS.mobile.price));
+  // Ingredients are never assets.
+  assert.ok(listAssets(game.state).every((a) => a.ref.kind === 'upgrade' || a.ref.kind === 'cart'));
+});
+
+test('assets: selling equipment funds a restock; no free money; sales survive save/load', () => {
+  const s = createNewGame(11);
+  s.totals.cupsSold = 5000;
+  s.cash = 50_000;
+  s.goalsDone = GOALS.map((g) => g.id); // goal rewards are a separate, existing mechanic
+  s.today = ledgerFor(s);
+  const game = new Game(s);
+  game.events.on('toast', () => {});
+  game.buyUpgrade('kotakEs'); // cash 0
+  for (const k of ['tea', 'sugar', 'ice', 'cups', 'lemon'] as const) game.state.inventory[k].qty = 0;
+  assert.equal(game.state.cash, 0);
+  assert.ok(game.isBankrupt(), 'out of stock and cash');
+  assert.equal(game.buySupply('tea', 0).ok, false, 'cannot restock with no cash');
+  assert.ok(hasSellableAssets(game.state));
+  // Time passing never adds money by itself (no loans, credit or handouts).
+  for (let i = 0; i < 300; i++) game.update(1 / 60);
+  assert.equal(game.state.cash, 0);
+  assert.ok(game.sellAsset({ kind: 'upgrade', id: 'kotakEs' }).ok);
+  assert.equal(game.state.cash, 40_000);
+  assert.ok(game.buySupply('tea', 0).ok, 'the proceeds pay for ingredients');
+  assert.ok(!hasSellableAssets(game.state));
+
+  // Persist and reload.
+  const loaded = sanitizeState(JSON.parse(JSON.stringify(game.state)))!;
+  assert.ok(!loaded.upgrades.includes('kotakEs'));
+  assert.equal(loaded.cash, game.state.cash);
+  assert.equal(loaded.today.assetSales, 40_000);
+  assert.equal(loaded.assetCost['upgrade:kotakEs'], undefined);
+
+  // Saves from before this feature: no recorded price → catalogue price, never something odd.
+  const old = JSON.parse(JSON.stringify(game.state));
+  old.upgrades = ['payung'];
+  delete old.assetCost;
+  delete old.today.assetSales;
+  const migrated = sanitizeState(old)!;
+  assert.deepEqual(migrated.assetCost, {});
+  assert.equal(migrated.today.assetSales, 0);
+  assert.equal(listAssets(migrated)[0].price, resaleValue(35_000));
+  const weird = JSON.parse(JSON.stringify(game.state));
+  weird.upgrades = ['payung'];
+  weird.assetCost = { 'upgrade:payung': 9_999_999, 'upgrade:notreal': 5, 'cart:truk': 1 };
+  assert.deepEqual(sanitizeState(weird)!.assetCost, {}, 'impossible prices and unowned items are dropped');
 });

@@ -6,7 +6,7 @@ export interface GameEvents {
   /** A completed purchase (emitted exactly once per transaction; `id` is unique within the world). */
   sale: { id: number; price: number; tip: number; x: number; y: number; satisfaction: number };
   /** The player spent money on something (for feedback sounds). */
-  purchase: { kind: 'supplies' | 'equipment' | 'unlock' };
+  purchase: { kind: 'supplies' | 'equipment' | 'unlock' | 'sale' };
   /** A player action was refused (not enough money, not allowed now, …). */
   actionFailed: { msg: string };
   /** A goal, location, cart or feature just became available. */
