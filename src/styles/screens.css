@@ -1490,11 +1490,16 @@ details.more .tbl {
   border-radius: 8px;
 }
 .title-foot {
-  /* Version and save note, bottom-left (the stage already sits inside the safe area). */
+  /* Version and save note bottom-left, credit bottom-right on the baseline of the "Versi" line
+     (the stage already sits inside the safe area). The host's badge may cover the credit. */
   position: absolute;
   left: 16px;
+  right: 16px;
   bottom: 12px;
-  max-width: calc(100% - 32px);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   font-size: 12px;
   font-weight: 700;
   color: var(--ivory);
@@ -1504,6 +1509,12 @@ details.more .tbl {
 .title-foot .save-note {
   color: var(--cream);
   font-size: inherit;
+}
+.title-foot .credit {
+  flex: none;
+  font: 700 14px var(--font-head);
+  letter-spacing: 0.6px;
+  color: var(--cream);
 }
 
 /* ------------------------------------------------------------ audio settings */
@@ -1685,7 +1696,7 @@ details.more .tbl {
   font-size: 13px;
 }
 .st-narrow .audio-hint {
-  bottom: 40px;
+  bottom: 50px; /* clear of the version label, even when it wraps on the smallest phones */
   max-width: calc(100% - 24px);
   white-space: nowrap;
 }

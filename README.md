@@ -31,7 +31,7 @@ Cek sebelum deploy: `npm ci && npm run build && npm run preview`, lalu buka alam
 
 ## Menu utama
 
-Game dibuka di layar judul: logo di tengah atas dan menu vertikal yang ringkas. Latarnya adalah peta yang hidup (sedikit buram dan perlahan bergeser) supaya menu tetap jadi fokus. Nomor versi dan keterangan penyimpanan ada di pojok kiri bawah.
+Game dibuka di layar judul: logo di tengah atas dan menu vertikal yang ringkas. Latarnya adalah peta yang hidup (sedikit buram dan perlahan bergeser) supaya menu tetap jadi fokus. Nomor versi dan keterangan penyimpanan ada di pojok kiri bawah, dan "A game by Rafi Aziz" di pojok kanan bawah.
 
 - **Lanjutkan:** membuka permainan yang terakhir dimainkan.
 - **Main Baru:** isi **Nama Pemilik** (wajib, 2–24 karakter) dan **Nama Usaha** (boleh kosong, otomatis "ESTEH"), lalu pilih penampilan penjual di gerobak. Setelah pesan sambutan, tekan **Mulai Bisnis**.
@@ -307,7 +307,7 @@ Semua warna diambil dari variabel CSS di `src/styles/main.css`. Warna ini dipaka
 
 Sudah diperiksa di 320×568, 375×667, 390×844, 430×932, 768×1024, 568×320, 844×390, 932×430, 1366×768, dan 1920×1080: semua elemen penting terlihat, tombol utama bisa diketuk, dan gerobak tetap di area bermain.
 
-Di layar judul, nomor versi dan keterangan penyimpanan ada di kiri bawah. Lencana Netlify boleh menimpanya; tidak ada ruang khusus yang disisihkan untuk lencana itu.
+Di layar judul, nomor versi dan keterangan penyimpanan ada di kiri bawah. **"A game by Rafi Aziz"** ada di kanan bawah, sejajar dengan nomor versi. Lencana "Powered by Netlify" yang dipasang Netlify di pojok kanan bawah boleh menutupinya.
 
 Halaman selalu pas satu layar tanpa bilah gulir: panggung memakai ukuran piksel bulat dengan skala yang tidak pernah melebihi jendela, dan wadahnya tidak bisa digulir.
 
